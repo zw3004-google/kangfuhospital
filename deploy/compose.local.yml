@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: kangfu-postgres
+    environment:
+      POSTGRES_DB: kangfu
+      POSTGRES_USER: kangfu
+      POSTGRES_PASSWORD: kangfu_local_only
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - kangfu-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kangfu -d kangfu"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kangfu-postgres-data:

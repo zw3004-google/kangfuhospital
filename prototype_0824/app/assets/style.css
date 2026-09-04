@@ -1,0 +1,141 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f3f5f9; color: #1f2937; font-size: 14px; }
+a { text-decoration: none; color: inherit; }
+
+/* ===== 登录页 ===== */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%); }
+.login-card { background: #fff; width: 400px; border-radius: 14px; padding: 40px 36px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+.login-card h1 { font-size: 22px; text-align: center; margin-bottom: 6px; }
+.login-card .sub { text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 28px; }
+.login-card label { display: block; font-size: 13px; color: #374151; margin: 14px 0 6px; }
+.login-card input, .login-card select { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+.login-card .btn-login { width: 100%; margin-top: 26px; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
+.login-card .tip { margin-top: 18px; padding: 10px 12px; background: #eff6ff; border-radius: 8px; font-size: 12px; color: #1d4ed8; line-height: 1.7; }
+
+/* ===== 布局 ===== */
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: #0f2557; color: #cbd5e1; flex-shrink: 0; position: sticky; top: 0; height: 100vh; }
+.sidebar .logo { padding: 20px 18px; font-size: 16px; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(255,255,255,.08); }
+.sidebar .logo small { display: block; font-size: 11px; color: #93a5c8; font-weight: 400; margin-top: 4px; }
+.nav-group { padding: 14px 10px 4px; font-size: 12px; color: #7c90bb; }
+.nav-item { display: block; padding: 10px 14px; margin: 2px 8px; border-radius: 8px; font-size: 14px; color: #cbd5e1; cursor: pointer; }
+.nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+.nav-item.active { background: #2563eb; color: #fff; }
+.main { flex: 1; min-width: 0; }
+.topbar { background: #fff; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 10; }
+.topbar .page-title { font-size: 16px; font-weight: 600; }
+.topbar .right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #6b7280; }
+.topbar select { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+.content { padding: 20px 24px 40px; }
+
+.demo-ribbon { background: #fef3c7; color: #92400e; font-size: 12px; padding: 8px 14px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #fde68a; }
+
+/* ===== 卡片与表格 ===== */
+.card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 18px; }
+.card h3 { font-size: 15px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.card h3::before { content: ""; width: 4px; height: 16px; background: #2563eb; border-radius: 2px; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.filters select, .filters input { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13px; background: #fff; }
+.filters .spacer { flex: 1; }
+.btn { padding: 8px 16px; border-radius: 7px; border: 1px solid #d1d5db; background: #fff; font-size: 13px; cursor: pointer; color: #374151; }
+.btn:hover { border-color: #2563eb; color: #2563eb; }
+.btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.btn.primary:hover { background: #1d4ed8; }
+.btn.danger { color: #dc2626; border-color: #fca5a5; }
+.btn.small { padding: 4px 10px; font-size: 12px; }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+table.grid td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+table.grid tr:hover td { background: #f8fafc; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.money-neg { color: #dc2626; font-weight: 600; }
+.tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+.tabbtn { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 16px; font-size: 14px; color: #64748b; cursor: pointer; margin-bottom: -1px; }
+.tabbtn.active { color: #2563eb; font-weight: 600; border-bottom-color: #2563eb; }
+.tabbtn:hover { color: #2563eb; }
+.resp-block { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 14px 6px; margin-top: 16px; position: relative; }
+.resp-tag { position: absolute; top: -11px; left: 12px; background: #fff; padding: 0 8px; font-size: 13px; font-weight: 600; color: #2563eb; }
+.tag.blue { background: #dbeafe; color: #1d4ed8; }
+.tag.green { background: #dcfce7; color: #15803d; }
+.tag.orange { background: #ffedd5; color: #c2410c; }
+.tag.red { background: #fee2e2; color: #b91c1c; }
+.tag.gray { background: #f1f5f9; color: #64748b; }
+
+/* ===== 统计与排行 ===== */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.stat-card .label { font-size: 12px; color: #6b7280; }
+.stat-card .value { font-size: 24px; font-weight: 700; margin-top: 6px; }
+.stat-card .value.red { color: #dc2626; }
+.stat-card .value.blue { color: #2563eb; }
+.stat-card .value.green { color: #16a34a; }
+.stat-card .extra { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+
+.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.podium-item { border-radius: 12px; padding: 18px; color: #fff; position: relative; }
+.podium-item .rank { position: absolute; top: 12px; right: 14px; font-size: 26px; font-weight: 800; opacity: .5; }
+.podium-item .dept { font-size: 15px; font-weight: 600; }
+.podium-item .amt { font-size: 24px; font-weight: 700; margin-top: 10px; }
+.podium-item .cnt { font-size: 12px; opacity: .85; margin-top: 4px; }
+.p1 { background: linear-gradient(135deg,#dc2626,#ef4444); }
+.p2 { background: linear-gradient(135deg,#ea580c,#f97316); }
+.p3 { background: linear-gradient(135deg,#d97706,#f59e0b); }
+
+.rank-bar { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+.rank-bar .dept { width: 170px; font-size: 13px; }
+.rank-bar .bar { flex: 1; height: 22px; background: #f1f5f9; border-radius: 6px; overflow: hidden; }
+.rank-bar .bar i { display: block; height: 100%; background: linear-gradient(90deg,#2563eb,#60a5fa); border-radius: 6px; }
+.rank-bar .pct { width: 70px; text-align: right; font-size: 13px; font-weight: 600; }
+
+/* ===== 看板 ===== */
+.board-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: start; }
+.board-col { background: #f8fafc; border-radius: 12px; padding: 12px; }
+.board-col h4 { font-size: 13px; color: #475569; padding: 4px 6px 10px; }
+.patient-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.06); border-left: 4px solid #2563eb; }
+.patient-card.urgent { border-left-color: #dc2626; }
+.patient-card .name { font-weight: 600; font-size: 14px; }
+.patient-card .meta { font-size: 12px; color: #6b7280; margin-top: 6px; line-height: 1.8; }
+.patient-card .doc { font-size: 12px; color: #2563eb; margin-top: 4px; }
+
+/* ===== 弹窗与提示 ===== */
+.modal-mask { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; z-index: 100; }
+.modal-mask.show { display: flex; }
+.modal { background: #fff; width: 460px; border-radius: 14px; padding: 24px; }
+.modal h3 { font-size: 16px; margin-bottom: 18px; }
+.modal label { display: block; font-size: 13px; color: #374151; margin: 12px 0 6px; }
+.modal input, .modal select, .modal textarea { width: 100%; padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13px; }
+.modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.modal .warn { background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; font-size: 12px; padding: 8px 12px; border-radius: 7px; margin-top: 12px; line-height: 1.7; }
+
+.msg-preview { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 16px; font-size: 13px; line-height: 2; white-space: pre-wrap; }
+
+.toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 22px; border-radius: 999px; font-size: 13px; z-index: 200; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.toast.show { display: block; animation: fadein .25s; }
+@keyframes fadein { from { opacity: 0; transform: translate(-50%,-8px);} to { opacity: 1; transform: translate(-50%,0);} }
+
+.note { font-size: 12px; color: #9ca3af; margin-top: 10px; line-height: 1.8; }
+@media (max-width: 1100px) { .stat-row { grid-template-columns: repeat(2,1fr);} .board-cols { grid-template-columns: 1fr;} }
+
+/* ===== 移动端（H5）适配 ===== */
+@media (max-width: 768px) {
+  .login-card { width: 92vw; padding: 30px 22px; }
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; }
+  .sidebar .logo { padding: 12px 14px; font-size: 14px; }
+  .sidebar .logo small { display: none; }
+  .nav-group { display: inline-block; padding: 6px 4px 2px 10px; font-size: 11px; }
+  .nav-item { display: inline-block; margin: 2px 2px 6px; padding: 6px 10px; font-size: 13px; }
+  .topbar { position: static; height: auto; padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+  .topbar .page-title { font-size: 15px; width: 100%; }
+  .content { padding: 12px 12px 30px; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-card .value { font-size: 20px; }
+  .podium { grid-template-columns: 1fr; }
+  .board-cols { grid-template-columns: 1fr; }
+  .card { padding: 14px; overflow-x: auto; }
+  .card table.grid { min-width: 720px; }
+  .rank-bar .dept { width: 120px; font-size: 12px; }
+  .modal { width: 92vw; max-height: 86vh; overflow-y: auto; }
+  .filters select, .filters input { flex: 1 1 45%; }
+}

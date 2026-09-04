@@ -1,0 +1,26 @@
+[Unit]
+Description=Kangfu Hospital Operations Server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kangfu
+Group=kangfu
+WorkingDirectory=/opt/kangfu/current
+EnvironmentFile=/etc/kangfu/kangfu.env
+ExecStart=/opt/kangfu/runtime/bin/java -XX:MaxRAMPercentage=65 -Duser.timezone=Asia/Shanghai -jar /opt/kangfu/current/app/kangfu-server.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/kangfu /var/lib/kangfu
+StandardOutput=append:/var/log/kangfu/application.log
+StandardError=append:/var/log/kangfu/application-error.log
+
+[Install]
+WantedBy=multi-user.target

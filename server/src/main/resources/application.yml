@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: kangfu-server
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kangfu}
+    username: ${DB_USERNAME:kangfu}
+    password: ${DB_PASSWORD:kangfu_local_only}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: Asia/Shanghai
+
+app:
+  security:
+    initial-password: ${APP_INITIAL_PASSWORD:Kfyy@2026}
+  messaging:
+    discharge-cron: ${APP_MESSAGING_DISCHARGE_CRON:0 0 8 * * *}
+    arrears-cron: ${APP_MESSAGING_ARREARS_CRON:0 0 8 * * *}
+  bootstrap-admin:
+    enabled: ${APP_BOOTSTRAP_ADMIN_ENABLED:false}
+    employee-no: ${APP_BOOTSTRAP_ADMIN_EMPLOYEE_NO:ADMIN}
+    wecom-user-id: ${APP_BOOTSTRAP_ADMIN_WECOM_USER_ID:admin}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    cn.hospital.rehab: INFO
+
+wecom:
+  corp-id: ${WECOM_CORP_ID:wwca98b2325f0bf0c5}
+  agent-id: ${WECOM_AGENT_ID:1000007}
+  secret: ${WECOM_SECRET:}
+  api-base: ${WECOM_API_BASE:https://qyapi.weixin.qq.com}

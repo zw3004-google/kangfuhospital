@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · 康复医院运营管理系统（原型）</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <h1>康复医院运营管理系统</h1>
+    <div class="sub">欠费通报 · 预出院管理（原型演示）</div>
+    <label>账号</label>
+    <input value="zhangkj" placeholder="工号">
+    <label>密码</label>
+    <input type="password" value="123456">
+    <label>登录角色</label>
+    <select id="role">
+      <option>系统管理员（全院）</option>
+      <option>财务科（全院）</option>
+      <option>法务（全院）</option>
+      <option>运营部（全院）</option>
+      <option>医保办（全院）</option>
+      <option>科主任（本科室）</option>
+      <option>护士（本科室）</option>
+    </select>
+    <button class="btn-login" onclick="login()">登 录</button>
+    <div class="tip">
+      原型说明：不同角色登录可见不同模块——系统管理员拥有全部模块权限；财务科/法务仅见欠费管理，运营部/医保办仅见预出院管理，科主任/护士两个模块均可见但仅限本科室数据；系统管理（系数、用户、权限）仅系统管理员可见。正式版将对接院内统一认证，不单独维护账号密码。
+    </div>
+  </div>
+</div>
+<script>
+function login(){
+  const role = document.getElementById("role").value;
+  localStorage.setItem("proto_role", role);
+  location.href = (role.includes("运营部")||role.includes("医保")) ? "board.html" : "arrears.html";
+}
+</script>
+</body>
+</html>
