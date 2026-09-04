@@ -8,6 +8,7 @@
 - `web/`：Vue 3 + TypeScript 管理端
 - `deploy/`：本地开发和后续部署配置
 - `docs/`：项目文档
+
 ## 代码仓库
 
 - GitHub：<https://github.com/zw3004-google/kangfuhospital>
