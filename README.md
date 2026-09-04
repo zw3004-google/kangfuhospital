@@ -8,6 +8,19 @@
 - `web/`：Vue 3 + TypeScript 管理端
 - `deploy/`：本地开发和后续部署配置
 - `docs/`：项目文档
+## 代码仓库
+
+- GitHub：<https://github.com/zw3004-google/kangfuhospital>
+- 主分支：`main`
+- SSH 地址：`git@github.com:zw3004-google/kangfuhospital.git`
+
+克隆仓库：
+
+```bash
+git clone git@github.com:zw3004-google/kangfuhospital.git
+```
+
+仓库不提交本地环境变量、密钥、构建产物、依赖缓存、运行数据及临时备份。实际密码和企业微信密钥必须通过环境变量注入。
 
 ## 项目基线文档
 
