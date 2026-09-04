@@ -36,6 +36,7 @@ git clone git@github.com:zw3004-google/kangfuhospital.git
 - [阶段 6：系统测试与整改](docs/phase6/README.md)
 - [通报报表原型对齐实施记录](docs/phase6/通报报表原型对齐实施记录.md)
 - [Testcontainers 与 Docker Desktop 29 兼容问题处理](docs/TESTCONTAINERS_DOCKER29_TROUBLESHOOTING.md)
+- [腾讯云测试环境部署记录](docs/TENCENT_CLOUD_TEST_DEPLOYMENT.md)
 
 ## 本地启动
 
