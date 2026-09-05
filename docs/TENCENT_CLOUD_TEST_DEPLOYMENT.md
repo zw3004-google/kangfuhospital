@@ -44,7 +44,7 @@ Internet -> Nginx :80/:443
 ## 运行资源
 
 - 应用：`/opt/kangfu-test`
-- 当前发布：`/opt/kangfu-test/releases/20260905-141150`
+- 当前发布：`v1.0.0`，`/opt/kangfu-test/releases/v1.0.0`；源码提交 `7b391296c7c73eb72a271eb84ce4a118e17abe38`。详见 [部署历史](DEPLOYMENT_HISTORY.md)。
 - JRE：`/opt/kangfu-test/runtime`
 - 环境配置：`/etc/kangfu-test/kangfu.env`
 - 数据库配置：`/etc/kangfu-test/postgres.env`
@@ -64,7 +64,7 @@ Internet -> Nginx :80/:443
 - 自动续期：`certbot-renew.timer`
 - HTTP 以 301 跳转 HTTPS
 
-## 验收
+## 首次部署验收（历史记录；当前版本结果见部署历史）
 
 - 后端测试 94 项通过，前端测试 44 项通过
 - Flyway 23 个迁移成功
@@ -105,6 +105,7 @@ systemctl start kangfu-test
 
 ```ini
 APP_ALLOWED_ORIGINS=https://kangfu.pkucarewiki.cn
+SESSION_COOKIE_SECURE=true
 ```
 
 Nginx 在 443 端口终止 TLS，再通过 HTTP 转发到后端。来源白名单为空时，后端按自身请求 URL 校验同源，浏览器 HTTPS 来源与后端 HTTP 协议不一致，会返回 HTTP 403、`ORIGIN_DENIED`（“请求来源不受信任”）。来源校验不信任任意转发头，不能仅依赖 `X-Forwarded-Proto`。
