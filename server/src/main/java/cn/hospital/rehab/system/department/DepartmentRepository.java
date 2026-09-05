@@ -50,6 +50,9 @@ public class DepartmentRepository {
                 .param("code", code).query(Boolean.class).single();
     }
 
+    public void delete(long id) {
+        jdbc.sql("DELETE FROM sys_department WHERE id=:id").param("id", id).update();
+    }
     public Department setEnabled(long id, boolean enabled) {
         return jdbc.sql("""
                 UPDATE sys_department SET enabled=:enabled, updated_at=CURRENT_TIMESTAMP

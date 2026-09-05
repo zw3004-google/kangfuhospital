@@ -27,4 +27,7 @@ public class DepartmentService {
         Department department = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("科室不存在"));
         return department.enabled() == enabled ? department : repository.setEnabled(id, enabled);
     }
+    @Transactional public void setEnabled(java.util.Set<Long> ids, boolean enabled) { for (Long id : ids) setEnabled(id, enabled); }
+    @Transactional public void delete(long id) { repository.findById(id).orElseThrow(() -> new IllegalArgumentException("科室不存在")); repository.delete(id); }
+    @Transactional public void delete(java.util.Set<Long> ids) { for (Long id : ids) delete(id); }
 }

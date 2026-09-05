@@ -77,6 +77,10 @@ public class UserRepository {
         return findById(id).orElseThrow();
     }
 
+    public void delete(long id) {
+        jdbc.sql("DELETE FROM sys_user_role WHERE user_id=:id").param("id", id).update();
+        jdbc.sql("DELETE FROM sys_user WHERE id=:id").param("id", id).update();
+    }
     public void resetPassword(long id, String passwordHash) {
         jdbc.sql("""
                 UPDATE sys_user SET password_hash=:hash, must_change_password=TRUE,

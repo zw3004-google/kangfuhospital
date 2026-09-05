@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import cn.hospital.rehab.common.importing.ImportError;
+import cn.hospital.rehab.common.importing.ExcelSheetRows;
 import cn.hospital.rehab.common.importing.ImportValidationException;
 import cn.hospital.rehab.common.importing.FailedImportBatchRecorder;
 
@@ -128,13 +129,26 @@ public class ArrearsImportService {
         if (!name.endsWith(".xlsx")) throw new IllegalArgumentException("仅支持xlsx文件");
     }
     static List<ArrearsImportRow> readRows(MultipartFile file) {
-        try {
-            return EasyExcel.read(file.getInputStream()).head(ArrearsImportRow.class).doReadAllSync();
-        } catch (IOException | RuntimeException exception) {
-            throw new IllegalArgumentException("Excel读取失败：" + exception.getMessage(), exception);
-        }
-    }
-    private void validateRows(List<ArrearsImportRow> rows) {
+        return ExcelSheetRows.read(file).stream().filter(row -> ExcelSheetRows.value(row, "住院号") != null).map(row -> {
+            ArrearsImportRow result = new ArrearsImportRow();
+            result.inpatientNo = ExcelSheetRows.value(row, "住院号");
+            result.admissionTimes = ExcelSheetRows.integer(row, "住院次数");
+            result.patientName = ExcelSheetRows.value(row, "姓名");
+            result.wardName = ExcelSheetRows.value(row, "住院病区");
+            result.feeType = ExcelSheetRows.value(row, "费别");
+            result.arrearsType = ExcelSheetRows.value(row, "欠费类型");
+            result.doctorName = ExcelSheetRows.value(row, "主管医生");
+            result.doctorEmployeeNo = ExcelSheetRows.value(row, "主管医生工号", "工号");
+            result.admittedAt = ExcelSheetRows.value(row, "入区日期");
+            result.dischargedAt = ExcelSheetRows.value(row, "出区日期");
+            result.totalCost = ExcelSheetRows.value(row, "总费用", "总费用(元)", "总费用（元）");
+            result.prepaidAmount = ExcelSheetRows.value(row, "预交金（元）", "预交金(元)");
+            result.medicalInsurancePaid = ExcelSheetRows.value(row, "医保支付（元）", "医保支付(元)");
+            result.personalAccountPaid = ExcelSheetRows.value(row, "个人账户支付（元）", "个人账户支付(元)");
+            result.originalRequiredDeposit = ExcelSheetRows.value(row, "原始应交押金（元）", "应交押金（元）", "应交押金(元)");
+            return result;
+        }).toList();
+    }    private void validateRows(List<ArrearsImportRow> rows) {
         List<ImportError> errors = new ArrayList<>();
         Set<String> keys = new HashSet<>();
         for (int index = 0; index < rows.size(); index++) {

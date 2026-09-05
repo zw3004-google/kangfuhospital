@@ -36,6 +36,18 @@ public class UserController {
     @PostMapping("/{id}/disable")
     ApiResponse<UserSummary> disable(Authentication auth,@PathVariable long id) { var u=service.setEnabled(id, false); audit.record(auth,"SYSTEM","USER",String.valueOf(id),"DISABLE",null,u); return ApiResponse.ok(u); }
     @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @PostMapping("/batch/enable")
+    ApiResponse<Void> batchEnable(Authentication auth, @Valid @RequestBody UserIdsRequest request) { service.setEnabled(request.ids(), true); audit.record(auth,"SYSTEM","USER",request.ids().toString(),"BATCH_ENABLE",null,null); return ApiResponse.ok(null); }
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @PostMapping("/batch/disable")
+    ApiResponse<Void> batchDisable(Authentication auth, @Valid @RequestBody UserIdsRequest request) { service.setEnabled(request.ids(), false); audit.record(auth,"SYSTEM","USER",request.ids().toString(),"BATCH_DISABLE",null,null); return ApiResponse.ok(null); }
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @DeleteMapping("/{id}")
+    ApiResponse<Void> delete(Authentication auth, @PathVariable long id) { if (service.isCurrentUser(id, auth.getName())) throw new IllegalArgumentException("不能删除当前登录用户"); service.delete(id); audit.record(auth,"SYSTEM","USER",String.valueOf(id),"DELETE",null,null); return ApiResponse.ok(null); }
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @DeleteMapping("/batch")
+    ApiResponse<Void> batchDelete(Authentication auth, @Valid @RequestBody UserIdsRequest request) { if (service.containsLogin(request.ids(), auth.getName())) throw new IllegalArgumentException("不能删除当前登录用户"); service.delete(request.ids()); audit.record(auth,"SYSTEM","USER",request.ids().toString(),"BATCH_DELETE",null,null); return ApiResponse.ok(null); }
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
     @PostMapping("/{id}/unlock")
     ApiResponse<Void> unlock(Authentication auth,@PathVariable long id) { service.unlock(id); audit.record(auth,"SYSTEM","USER",String.valueOf(id),"UNLOCK",null,null); return ApiResponse.ok(null); }
 

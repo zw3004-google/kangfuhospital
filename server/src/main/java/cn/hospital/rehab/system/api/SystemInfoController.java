@@ -15,7 +15,7 @@ public class SystemInfoController {
     public ApiResponse<Map<String, String>> info() {
         return ApiResponse.ok(Map.of(
                 "name", "康复医院运营管理系统",
-                "version", "1.1.0"
+                "version", "1.1.1"
         ));
     }
 }

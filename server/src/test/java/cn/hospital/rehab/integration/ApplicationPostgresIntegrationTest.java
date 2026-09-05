@@ -71,13 +71,13 @@ class ApplicationPostgresIntegrationTest {
         long encounterId=jdbc.sql("SELECT id FROM patient_encounter WHERE inpatient_no='TEST-0001'").query(Long.class).single();
         long dischargeId=id("discharge_record","TEST-0001");
         String appointment=OffsetDateTime.now().plusDays(2).withNano(0).toString();
-        String created=mvc.perform(post("/api/discharge/consultations").param("encounterId",String.valueOf(encounterId)).param("type","NUTRITION").with(sessionAuth("admin","kfyy123")).contentType("application/json").content("{\"appointmentAt\":\""+appointment+"\",\"executorName\":\"营养师甲\",\"executionResult\":\"待执行\"}"))
+        String created=mvc.perform(post("/api/discharge/consultations").param("encounterId",String.valueOf(encounterId)).param("type","NUTRITION").with(sessionAuth("admin","kfyy123!")).contentType("application/json").content("{\"appointmentAt\":\""+appointment+"\",\"executorName\":\"营养师甲\",\"executionResult\":\"待执行\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.executorName").value("营养师甲")).andReturn().getResponse().getContentAsString();
         long consultationId=new com.fasterxml.jackson.databind.ObjectMapper().readTree(created).path("data").path("id").asLong();
-        mvc.perform(get("/api/discharge/consultations").param("encounterId",String.valueOf(encounterId)).param("type","NUTRITION").with(sessionAuth("admin","kfyy123"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1));
-        mvc.perform(delete("/api/discharge/consultations/{id}",consultationId).param("type","NUTRITION").with(sessionAuth("admin","kfyy123"))).andExpect(status().isOk());
+        mvc.perform(get("/api/discharge/consultations").param("encounterId",String.valueOf(encounterId)).param("type","NUTRITION").with(sessionAuth("admin","kfyy123!"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1));
+        mvc.perform(delete("/api/discharge/consultations/{id}",consultationId).param("type","NUTRITION").with(sessionAuth("admin","kfyy123!"))).andExpect(status().isOk());
         assertThat(jdbc.sql("SELECT deleted FROM discharge_nutrition_consultation WHERE id=:id").param("id",consultationId).query(Boolean.class).single()).isTrue();
-        mvc.perform(put("/api/discharge/records/{id}",dischargeId).with(sessionAuth("admin","kfyy123")).contentType("application/json").content("{\"followUpRequired\":true,\"followUpDay7\":\"恢复良好\",\"abnormalReason\":\"已核对\"}"))
+        mvc.perform(put("/api/discharge/records/{id}",dischargeId).with(sessionAuth("admin","kfyy123!")).contentType("application/json").content("{\"followUpRequired\":true,\"followUpDay7\":\"恢复良好\",\"abnormalReason\":\"已核对\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.followUpDay7").value("恢复良好"));
     }
 
@@ -101,7 +101,7 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     void systemAdministratorAutomaticallyHasEveryEnabledPermission() throws Exception {
-        mvc.perform(get("/api/system/me").with(sessionAuth("admin", "kfyy123")))
+        mvc.perform(get("/api/system/me").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.authorities", org.hamcrest.Matchers.hasItem("PERM_API_USER_MANAGE")))
                 .andExpect(jsonPath("$.data.authorities", org.hamcrest.Matchers.hasItem("PERM_API_ROLE_MANAGE")));
@@ -110,9 +110,9 @@ class ApplicationPostgresIntegrationTest {
     @Test
     void fullAccessRolesCanQueryAllDepartments() throws Exception {
         for (String user : new String[]{"admin", "test_operations", "test_finance"}) {
-            mvc.perform(get("/api/discharge/records").with(sessionAuth(user, "kfyy123")))
+            mvc.perform(get("/api/discharge/records").with(sessionAuth(user, "kfyy123!")))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(2));
-            mvc.perform(get("/api/arrears/records").with(sessionAuth(user, "kfyy123")))
+            mvc.perform(get("/api/arrears/records").with(sessionAuth(user, "kfyy123!")))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(2))
                     .andExpect(jsonPath("$.data.items[0].admittedAt").isNotEmpty())
                     .andExpect(jsonPath("$.data.items[0].prepaidAmount").value(0))
@@ -133,23 +133,23 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     void departmentDirectorQueryAndExportAreLimitedToAssignedDepartment() throws Exception {
-        mvc.perform(get("/api/discharge/records").with(sessionAuth("test_director", "kfyy123")))
+        mvc.perform(get("/api/discharge/records").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].inpatientNo").value("TEST-0001"));
-        mvc.perform(get("/api/discharge/records/export").with(sessionAuth("test_director", "kfyy123")))
+        mvc.perform(get("/api/discharge/records/export").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("TEST-0001")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("TEST-0002"))));
-        mvc.perform(get("/api/arrears/records/export").with(sessionAuth("test_director", "kfyy123")))
+        mvc.perform(get("/api/arrears/records/export").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("TEST-0001")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("TEST-0002"))));
     }
 
     @Test
     void attendingDoctorQueryAndExportAreLimitedByDoctorUserId() throws Exception {
-        mvc.perform(get("/api/discharge/records").with(sessionAuth("test_doctor_a", "kfyy123")))
+        mvc.perform(get("/api/discharge/records").with(sessionAuth("test_doctor_a", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].inpatientNo").value("TEST-0001"));
-        mvc.perform(get("/api/arrears/records/export").with(sessionAuth("test_doctor_a", "kfyy123")))
+        mvc.perform(get("/api/arrears/records/export").with(sessionAuth("test_doctor_a", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("TEST-0001")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("TEST-0002"))));
     }
@@ -157,7 +157,7 @@ class ApplicationPostgresIntegrationTest {
     @Test
     void arrearsDoctorEmployeeNumberIsReturnedSearchableExportedAndScoped() throws Exception {
         mvc.perform(get("/api/arrears/records").param("keyword", "T-DOCTOR-A")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].inpatientNo").value("TEST-0001"))
@@ -165,12 +165,12 @@ class ApplicationPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.items[0].doctorEmployeeNo").value("T-DOCTOR-A"));
 
         mvc.perform(get("/api/arrears/records").param("keyword", "T-DOCTOR-A")
-                        .with(sessionAuth("test_doctor_b", "kfyy123")))
+                        .with(sessionAuth("test_doctor_b", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(0));
 
         mvc.perform(get("/api/arrears/records/export").param("keyword", "T-DOCTOR-A")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("主管医生工号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("T-DOCTOR-A")))
@@ -183,7 +183,7 @@ class ApplicationPostgresIntegrationTest {
         long dischargeId = id("discharge_record", "TEST-0001");
         long arrearsId = id("arrears_record", "TEST-0001");
         mvc.perform(put("/api/discharge/records/{id}", dischargeId)
-                        .with(sessionAuth("test_director", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_director", "kfyy123!")).contentType("application/json")
                         .content("{\"specialPatient\":false,\"abnormalReason\":\"已核对\"}"))
                 .andExpect(status().isForbidden());
         jdbc.sql("""
@@ -193,25 +193,25 @@ class ApplicationPostgresIntegrationTest {
                 ON CONFLICT DO NOTHING
                 """).update();
         mvc.perform(put("/api/discharge/records/{id}", dischargeId)
-                        .with(sessionAuth("test_director", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_director", "kfyy123!")).contentType("application/json")
                         .content("{\"specialPatient\":false,\"abnormalReason\":\"已核对\"}"))
                 .andExpect(status().isOk());
         mvc.perform(put("/api/arrears/records/{id}", arrearsId)
-                        .with(sessionAuth("test_doctor_a", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_doctor_a", "kfyy123!")).contentType("application/json")
                         .content("{\"paymentStatus\":\"UNPAID\",\"arrearsReason\":\"测试原因\",\"recoveryProgress\":\"NEGOTIATING\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.paymentStatus").value("UNPAID"))
                 .andExpect(jsonPath("$.data.recoveryProgress").value("NEGOTIATING"))
                 .andExpect(jsonPath("$.data.lastOperatedBy").value("测试医生甲"));
         mvc.perform(put("/api/arrears/records/{id}", arrearsId)
-                        .with(sessionAuth("test_doctor_a", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_doctor_a", "kfyy123!")).contentType("application/json")
                         .content("{\"paymentStatus\":\"PAID\",\"arrearsReason\":\"测试原因\",\"recoveryProgress\":\"PAID\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.paymentStatus").value("PAID"))
                 .andExpect(jsonPath("$.data.recoveryProgress").value("PAID"))
                 .andExpect(jsonPath("$.data.previousRecoveryProgress").value("NEGOTIATING"));
         mvc.perform(put("/api/arrears/records/{id}", arrearsId)
-                        .with(sessionAuth("test_doctor_a", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_doctor_a", "kfyy123!")).contentType("application/json")
                         .content("{\"paymentStatus\":\"UNPAID\",\"arrearsReason\":\"测试原因\",\"recoveryProgress\":null}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.paymentStatus").value("UNPAID"))
@@ -227,11 +227,11 @@ class ApplicationPostgresIntegrationTest {
         long dischargeId = id("discharge_record", "TEST-0002");
         long arrearsId = id("arrears_record", "TEST-0002");
         mvc.perform(put("/api/discharge/records/{id}", dischargeId)
-                        .with(sessionAuth("test_director", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_director", "kfyy123!")).contentType("application/json")
                         .content("{\"specialPatient\":false}"))
                 .andExpect(status().isForbidden());
         mvc.perform(put("/api/arrears/records/{id}", arrearsId)
-                        .with(sessionAuth("test_doctor_a", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_doctor_a", "kfyy123!")).contentType("application/json")
                         .content("{\"paymentStatus\":\"UNPAID\"}"))
                 .andExpect(status().isForbidden());
     }
@@ -240,14 +240,14 @@ class ApplicationPostgresIntegrationTest {
     void arrearsUpdateRejectsUnknownRecoveryProgress() throws Exception {
         long arrearsId = id("arrears_record", "TEST-0001");
         mvc.perform(put("/api/arrears/records/{id}", arrearsId)
-                        .with(sessionAuth("test_doctor_a", "kfyy123")).contentType("application/json")
+                        .with(sessionAuth("test_doctor_a", "kfyy123!")).contentType("application/json")
                         .content("{\"paymentStatus\":\"UNPAID\",\"recoveryProgress\":\"随意填写\"}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void reportsAndAnalysisUseTheSameDataScope() throws Exception {
-        mvc.perform(get("/api/arrears/report").with(sessionAuth("test_director", "kfyy123")))
+        mvc.perform(get("/api/arrears/report").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.people").value(1))
                 .andExpect(jsonPath("$.data.scopeType").value("DEPARTMENT"))
@@ -257,19 +257,19 @@ class ApplicationPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.patientTop10.length()").value(1))
                 .andExpect(jsonPath("$.data.patientTop10[0].rank").value(1))
                 .andExpect(jsonPath("$.data.patientTop10[0].inpatientNo").value("TEST-0001"));
-        mvc.perform(get("/api/arrears/report").with(sessionAuth("test_doctor_a", "kfyy123")))
+        mvc.perform(get("/api/arrears/report").with(sessionAuth("test_doctor_a", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.people").value(1))
                 .andExpect(jsonPath("$.data.scopeType").value("DOCTOR"))
                 .andExpect(jsonPath("$.data.patientTop10[0].doctorName").value("测试医生甲"));
-        mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123")))
+        mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.people").value(2))
                 .andExpect(jsonPath("$.data.scopeType").value("ALL"))
                 .andExpect(jsonPath("$.data.ranking.length()").value(2))
                 .andExpect(jsonPath("$.data.patientTop10.length()").value(2));
         mvc.perform(get("/api/discharge/analysis").param("month", "2026-08")
-                        .with(sessionAuth("test_doctor_a", "kfyy123")))
+                        .with(sessionAuth("test_doctor_a", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.dischargeCount").value(1));
     }
 
@@ -288,7 +288,7 @@ class ApplicationPostgresIntegrationTest {
                 .param("a", encounterA).param("b", encounterB).update();
 
         mvc.perform(get("/api/discharge/analysis").param("month", "2026-08")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.dischargeCount").value(2))
                 .andExpect(jsonPath("$.data.nearDischarge3DayCount").isNumber())
@@ -311,29 +311,29 @@ class ApplicationPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.trend[19].outpatientRate").value(50.0));
 
         mvc.perform(get("/api/discharge/records").param("category", "NUTRITION")
-                        .param("page", "1").param("pageSize", "20").with(sessionAuth("admin", "kfyy123")))
+                        .param("page", "1").param("pageSize", "20").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.pageSize").value(20))
                 .andExpect(jsonPath("$.data.items[0].inpatientNo").value("TEST-0001"));
         mvc.perform(get("/api/discharge/records").param("category", "HOME_REHAB")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1));
         mvc.perform(get("/api/discharge/records").param("category", "OUTPATIENT")
-                        .with(sessionAuth("test_director", "kfyy123")))
+                        .with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].inpatientNo").value("TEST-0001"));
         mvc.perform(get("/api/discharge/records").param("category", "OUTPATIENT")
-                        .with(sessionAuth("test_doctor_b", "kfyy123")))
+                        .with(sessionAuth("test_doctor_b", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(0));
         mvc.perform(get("/api/discharge/records").param("category", "NUTRITION")
                         .param("timeType", "NUTRITION")
                         .param("startAt", "2026-09-01T00:00:00+08:00")
                         .param("endAt", "2026-09-02T00:00:00+08:00")
                         .param("keyword", "TEST-0001")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1));
         mvc.perform(get("/api/discharge/records/export").param("category", "OUTPATIENT")
-                        .param("keyword", "TEST-").with(sessionAuth("test_director", "kfyy123")))
+                        .param("keyword", "TEST-").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("TEST-0001")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("TEST-0002"))));
@@ -342,7 +342,7 @@ class ApplicationPostgresIntegrationTest {
     @Test
     void dischargeAnalysisDetailsRejectUnknownCategory() throws Exception {
         mvc.perform(get("/api/discharge/records").param("category", "UNKNOWN")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -353,14 +353,14 @@ class ApplicationPostgresIntegrationTest {
                 UPDATE discharge_record d SET planned_discharge_at=NULL, actual_discharge_at=(CURRENT_DATE - 1) + TIME '10:00'
                 FROM patient_encounter e WHERE e.id=d.encounter_id AND e.inpatient_no='TEST-0001'
                 """).update();
-        mvc.perform(get("/api/discharge/reminders/preview").with(sessionAuth("test_operations", "kfyy123")))
+        mvc.perform(get("/api/discharge/reminders/preview").with(sessionAuth("test_operations", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.reminderDate").isNotEmpty())
                 .andExpect(jsonPath("$.data.totalPatients").isNumber())
                 .andExpect(jsonPath("$.data.items.length()").value(4))
                 .andExpect(jsonPath("$.data.items[3].recipientScope").value("患者主管医生"))
                 .andExpect(jsonPath("$.data.items[3].triggerBasis").value(org.hamcrest.Matchers.containsString("计划缺失")));
-        mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_operations", "kfyy123")))
+        mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_operations", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.reminderDate").isNotEmpty())
                 .andExpect(jsonPath("$.data.createdTasks").isNumber())
@@ -369,14 +369,14 @@ class ApplicationPostgresIntegrationTest {
                 .query(Long.class).single()).isEqualTo(1);
         assertThat(jdbc.sql("SELECT COUNT(*) FROM push_task WHERE business_type='DISCHARGE' AND reminder_type='UNPLANNED' AND recipient_wecom_id='test-doctor-a' AND reminder_date=CURRENT_DATE")
                 .query(Long.class).single()).isEqualTo(1);
-        mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_director", "kfyy123")))
+        mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void dischargeAnalysisUsesNullRatesWhenTheMonthHasNoDischarges() throws Exception {
         mvc.perform(get("/api/discharge/analysis").param("month", "2025-01")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.dischargeCount").value(0))
                 .andExpect(jsonPath("$.data.unplannedRate").value(nullValue()))
@@ -400,7 +400,7 @@ class ApplicationPostgresIntegrationTest {
                  WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='TEST-0002')
                 """).update();
 
-        mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123")))
+        mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.latestSuccessfulBatch.batchNo").value("TEST-ARREARS-READY"))
                 .andExpect(jsonPath("$.data.people").value(1))
@@ -411,7 +411,7 @@ class ApplicationPostgresIntegrationTest {
     @Test
     void attendingDoctorCannotImportDischargeData() throws Exception {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/discharge/import")
-                        .file("file", new byte[]{1}).with(sessionAuth("test_doctor_a", "kfyy123")))
+                        .file("file", new byte[]{1}).with(sessionAuth("test_doctor_a", "kfyy123!")))
                 .andExpect(status().isForbidden());
     }
 
@@ -433,9 +433,9 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     void auditEndpointUsesSecuredSystemPath() throws Exception {
-        mvc.perform(get("/api/system/audit-logs").with(sessionAuth("admin","kfyy123")))
+        mvc.perform(get("/api/system/audit-logs").with(sessionAuth("admin","kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
-        mvc.perform(get("/api/audit/logs").with(sessionAuth("admin","kfyy123")))
+        mvc.perform(get("/api/audit/logs").with(sessionAuth("admin","kfyy123!")))
                 .andExpect(status().isNotFound());
     }
 
@@ -447,7 +447,7 @@ class ApplicationPostgresIntegrationTest {
         assertThat(jdbc.sql("SELECT status FROM push_task WHERE id=:id").param("id",task).query(String.class).single()).isEqualTo("RETRYING");
         assertThat(jdbc.sql("SELECT trigger_type||'|'||error_code FROM push_attempt WHERE task_id=:id AND attempt_no=1").param("id",task).query(String.class).single()).isEqualTo("AUTOMATIC|CONFIG_MISSING");
         jdbc.sql("UPDATE push_task SET status='FAILED' WHERE id=:id").param("id",task).update();
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/arrears/push-records/{id}/retry",task).with(sessionAuth("admin","kfyy123"))).andExpect(status().isOk());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/arrears/push-records/{id}/retry",task).with(sessionAuth("admin","kfyy123!"))).andExpect(status().isOk());
         pushTaskDispatcher.dispatch();
         assertThat(jdbc.sql("SELECT trigger_type FROM push_attempt WHERE task_id=:id AND attempt_no=2").param("id",task).query(String.class).single()).isEqualTo("MANUAL");
         assertThat(jdbc.sql("SELECT COUNT(*) FROM operation_audit_log WHERE business_type='PUSH_TASK' AND business_id=:id AND action_type='MANUAL_RETRY'").param("id",String.valueOf(task)).query(Long.class).single()).isEqualTo(1);
@@ -469,15 +469,15 @@ class ApplicationPostgresIntegrationTest {
                 .param("task", hiddenTask).param("department", departmentB).update();
 
         mvc.perform(get("/api/arrears/push-records").param("businessType", "ARREARS")
-                        .with(sessionAuth("test_director", "kfyy123")))
+                        .with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].id").value(visibleTask));
         mvc.perform(get("/api/arrears/push-records/{id}/attempts", hiddenTask)
-                        .with(sessionAuth("test_director", "kfyy123")))
+                        .with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/arrears/push-records").param("businessType", "ARREARS")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(3));
     }
@@ -491,7 +491,7 @@ class ApplicationPostgresIntegrationTest {
         long unselected = scopedPushTask("PHASE7_BATCH_UNSELECTED", "ALL", "FAILED");
 
         mvc.perform(post("/api/arrears/push-records/retry-batch")
-                        .with(sessionAuth("admin", "kfyy123"))
+                        .with(sessionAuth("admin", "kfyy123!"))
                         .contentType("application/json")
                         .content("{\"businessType\":\"ARREARS\",\"ids\":[" + firstFailed + "," + secondFailed
                                 + "," + sent + "," + firstFailed + "]}"))
@@ -524,7 +524,7 @@ class ApplicationPostgresIntegrationTest {
                 .param("task", task).param("department", departmentA).update();
 
         mvc.perform(post("/api/arrears/push-records/{id}/retry", task)
-                        .with(sessionAuth("test_director", "kfyy123")))
+                        .with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isForbidden());
     }
 
@@ -566,16 +566,16 @@ class ApplicationPostgresIntegrationTest {
 
         long queryStartedAt = System.nanoTime();
         mvc.perform(get("/api/arrears/records").param("page", "1").param("pageSize", "200")
-                        .param("keyword", "S6-ARR-").with(sessionAuth("admin", "kfyy123")))
+                        .param("keyword", "S6-ARR-").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1999));
         long queryMillis = (System.nanoTime() - queryStartedAt) / 1_000_000;
         long exportStartedAt = System.nanoTime();
         mvc.perform(get("/api/arrears/records/export").param("keyword", "S6-ARR-")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("S6-ARR-1000")));
         long exportMillis = (System.nanoTime() - exportStartedAt) / 1_000_000;
         long reportStartedAt = System.nanoTime();
-        mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123")))
+        mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.latestSuccessfulBatch.batchNo").value(accepted.batchNo()))
                 .andExpect(jsonPath("$.data.people").value(1000))
@@ -594,47 +594,47 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     @Transactional
-    void dischargeImportCovers999To1001BoundariesAndLargeQueries() throws Exception {
-        List<DischargeImportRow> belowLimitRows = IntStream.rangeClosed(1, 999)
-                .mapToObj(i -> dischargeRow("S6-DIS-999-" + i)).toList();
-        var belowLimit = dischargeImportService.importFile(workbook("discharge-999.xlsx", DischargeImportRow.class, belowLimitRows));
-        assertThat(belowLimit.total()).isEqualTo(999);
-        assertThat(belowLimit.success()).isEqualTo(999);
+    void dischargeImportCovers4999To5001BoundariesAndLargeQueries() throws Exception {
+        List<DischargeImportRow> belowLimitRows = IntStream.rangeClosed(1, 4999)
+                .mapToObj(i -> dischargeRow("S6-DIS-4999-" + i)).toList();
+        var belowLimit = dischargeImportService.importFile(workbook("discharge-4999.xlsx", DischargeImportRow.class, belowLimitRows));
+        assertThat(belowLimit.total()).isEqualTo(4999);
+        assertThat(belowLimit.success()).isEqualTo(4999);
 
-        List<DischargeImportRow> acceptedRows = IntStream.rangeClosed(1, 1000)
+        List<DischargeImportRow> acceptedRows = IntStream.rangeClosed(1, 5000)
                 .mapToObj(i -> dischargeRow("S6-DIS-" + i)).toList();
         long startedAt = System.nanoTime();
-        var accepted = dischargeImportService.importFile(workbook("discharge-1000.xlsx", DischargeImportRow.class, acceptedRows));
+        var accepted = dischargeImportService.importFile(workbook("discharge-5000.xlsx", DischargeImportRow.class, acceptedRows));
         long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
-        assertThat(accepted.total()).isEqualTo(1000);
-        assertThat(accepted.success()).isEqualTo(1000);
-        assertThat(accepted.added()).isEqualTo(1000);
-        assertThat(jdbc.sql("SELECT COUNT(*) FROM patient_encounter WHERE inpatient_no LIKE 'S6-DIS-%'").query(Long.class).single()).isEqualTo(1999);
+        assertThat(accepted.total()).isEqualTo(5000);
+        assertThat(accepted.success()).isEqualTo(5000);
+        assertThat(accepted.added()).isEqualTo(5000);
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM patient_encounter WHERE inpatient_no LIKE 'S6-DIS-%'").query(Long.class).single()).isEqualTo(9999);
 
         long queryStartedAt = System.nanoTime();
         mvc.perform(get("/api/discharge/records").param("page", "1").param("pageSize", "200")
-                        .param("keyword", "S6-DIS-").with(sessionAuth("admin", "kfyy123")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1999));
+                        .param("keyword", "S6-DIS-").with(sessionAuth("admin", "kfyy123!")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(9999));
         long queryMillis = (System.nanoTime() - queryStartedAt) / 1_000_000;
         long exportStartedAt = System.nanoTime();
         mvc.perform(get("/api/discharge/records/export").param("keyword", "S6-DIS-")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("S6-DIS-1000")));
         long exportMillis = (System.nanoTime() - exportStartedAt) / 1_000_000;
         long analysisStartedAt = System.nanoTime();
         mvc.perform(get("/api/discharge/analysis").param("month", "2026-09")
-                        .with(sessionAuth("admin", "kfyy123")))
+                        .with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk());
         long analysisMillis = (System.nanoTime() - analysisStartedAt) / 1_000_000;
 
-        List<DischargeImportRow> rejectedRows = IntStream.rangeClosed(1, 1001)
+        List<DischargeImportRow> rejectedRows = IntStream.rangeClosed(1, 5001)
                 .mapToObj(i -> dischargeRow("S6-DIS-REJECT-" + i)).toList();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> dischargeImportService.importFile(
-                        workbook("discharge-1001.xlsx", DischargeImportRow.class, rejectedRows)))
+                        workbook("discharge-5001.xlsx", DischargeImportRow.class, rejectedRows)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("最多1000条");
+                .hasMessageContaining("最多5000条");
         assertThat(jdbc.sql("SELECT COUNT(*) FROM patient_encounter WHERE inpatient_no LIKE 'S6-DIS-REJECT-%'").query(Long.class).single()).isZero();
-        System.out.printf("PHASE6_METRIC discharge_import_1000_ms=%d discharge_query_1999_ms=%d discharge_export_1999_ms=%d discharge_analysis_1999_ms=%d%n", elapsedMillis, queryMillis, exportMillis, analysisMillis);
+        System.out.printf("PHASE6_METRIC discharge_import_5000_ms=%d discharge_query_9999_ms=%d discharge_export_9999_ms=%d discharge_analysis_9999_ms=%d%n", elapsedMillis, queryMillis, exportMillis, analysisMillis);
     }
 
     @Test
@@ -644,7 +644,7 @@ class ApplicationPostgresIntegrationTest {
             List<Callable<Integer>> requests = IntStream.range(0, 100)
                     .mapToObj(i -> (Callable<Integer>) () -> mvc.perform(get(i % 2 == 0 ? "/api/arrears/records" : "/api/discharge/records")
                                     .param("page", "1").param("pageSize", "20")
-                                    .with(sessionAuth("admin", "kfyy123")))
+                                    .with(sessionAuth("admin", "kfyy123!")))
                             .andReturn().getResponse().getStatus())
                     .toList();
             long startedAt = System.nanoTime();

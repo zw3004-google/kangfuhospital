@@ -14,16 +14,14 @@ import java.util.Set;
 public class UserService {
     private final UserRepository users;
     private final DepartmentRepository departments;
-    private final LoginNameGenerator loginNames;
     private final PasswordEncoder passwordEncoder;
     private final String initialPassword;
 
-    public UserService(UserRepository users, DepartmentRepository departments, LoginNameGenerator loginNames,
+    public UserService(UserRepository users, DepartmentRepository departments,
                        PasswordEncoder passwordEncoder,
-                       @Value("${app.security.initial-password:kfyy123}") String initialPassword) {
+                       @Value("${app.security.initial-password:kfyy123!}") String initialPassword) {
         this.users = users;
         this.departments = departments;
-        this.loginNames = loginNames;
         this.passwordEncoder = passwordEncoder;
         this.initialPassword = initialPassword;
     }
@@ -40,8 +38,8 @@ public class UserService {
         var department = departments.findById(request.departmentId())
                 .orElseThrow(() -> new IllegalArgumentException("所属科室不存在"));
         if (!department.enabled()) throw new IllegalArgumentException("不能为用户分配已停用科室");
-        String base = loginNames.fromDisplayName(request.displayName());
-        String loginName = nextAvailableLoginName(base);
+        String loginName = request.wecomUserId().trim();
+        if (users.loginNameExists(loginName)) throw new IllegalArgumentException("企微ID已存在：" + loginName);
         String employeeNo = request.employeeNo().trim();
         if (users.employeeNoExists(employeeNo)) throw new IllegalArgumentException("工号已存在：" + employeeNo);
         return users.insert(loginName, request.displayName().trim(), passwordEncoder.encode(initialPassword),
@@ -53,6 +51,11 @@ public class UserService {
         UserSummary user = requireUser(id);
         return user.enabled() == enabled ? user : users.setEnabled(id, enabled);
     }
+    @Transactional public void setEnabled(Set<Long> ids, boolean enabled) { for (Long id : ids) setEnabled(id, enabled); }
+    @Transactional public void delete(long id) { requireUser(id); users.delete(id); }
+    @Transactional public void delete(Set<Long> ids) { for (Long id : ids) delete(id); }
+    public boolean isCurrentUser(long id, String loginName) { return requireUser(id).loginName().equals(loginName); }
+    public boolean containsLogin(Set<Long> ids, String loginName) { return ids.stream().anyMatch(id -> isCurrentUser(id, loginName)); }
     @Transactional public void unlock(long id) { requireUser(id); users.unlock(id); }
 
     @Transactional
@@ -79,10 +82,4 @@ public class UserService {
         return users.findById(id).orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }
 
-    private String nextAvailableLoginName(String base) {
-        if (!users.loginNameExists(base)) return base;
-        int suffix = 2;
-        while (users.loginNameExists(base + suffix)) suffix++;
-        return base + suffix;
-    }
 }

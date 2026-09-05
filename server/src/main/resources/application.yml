@@ -17,7 +17,7 @@ spring:
 app:
   security:
     allowed-origins: ${APP_ALLOWED_ORIGINS:}
-    initial-password: ${APP_INITIAL_PASSWORD:kfyy123}
+    initial-password: ${APP_INITIAL_PASSWORD:kfyy123!}
   messaging:
     discharge-cron: ${APP_MESSAGING_DISCHARGE_CRON:0 0 8 * * *}
     arrears-cron: ${APP_MESSAGING_ARREARS_CRON:0 0 8 * * *}

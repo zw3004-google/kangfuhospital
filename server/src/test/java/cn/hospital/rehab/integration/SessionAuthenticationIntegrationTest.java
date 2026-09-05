@@ -65,7 +65,7 @@ class SessionAuthenticationIntegrationTest {
         var login = client.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + "/api/auth/login"))
                 .header(token.path("headerName").asText(), token.path("token").asText())
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(java.net.http.HttpRequest.BodyPublishers.ofString("username=admin&password=kfyy123")).build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString("username=admin&password=kfyy123!")).build(), java.net.http.HttpResponse.BodyHandlers.ofString());
         assertThat(login.statusCode()).isEqualTo(200);
         var next = client.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + "/api/auth/csrf")).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString());
         token = json.readTree(next.body()).path("data");
@@ -86,7 +86,7 @@ class SessionAuthenticationIntegrationTest {
         String oldId = client.session.getId();
         var login = mvc.perform(post("/api/auth/login").with(client.auth())
                         .param("username", "admin")
-                        .param("password", "kfyy123"))
+                        .param("password", "kfyy123!"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andReturn();

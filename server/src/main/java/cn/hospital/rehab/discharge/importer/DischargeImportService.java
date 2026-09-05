@@ -1,6 +1,7 @@
 package cn.hospital.rehab.discharge.importer;
 
 import cn.hospital.rehab.common.importing.ImportError;
+import cn.hospital.rehab.common.importing.ExcelSheetRows;
 import cn.hospital.rehab.common.importing.ImportValidationException;
 import cn.hospital.rehab.common.importing.FailedImportBatchRecorder;
 import com.alibaba.excel.EasyExcel;
@@ -27,7 +28,7 @@ public class DischargeImportService {
     @Transactional
     public Result importFile(MultipartFile file) {
         validateFile(file); List<DischargeImportRow> rows = read(file);
-        if (rows.size() > 1000) throw new IllegalArgumentException("单次导入最多1000条");
+        if (rows.size() > 5000) throw new IllegalArgumentException("单次导入最多5000条");
         if (rows.isEmpty()) throw new IllegalArgumentException("导入文件没有数据行");
         try { validateRows(rows); }
         catch (ImportValidationException exception) {
@@ -44,14 +45,28 @@ public class DischargeImportService {
                 .param("success",rows.size()).param("added",added).param("overwritten",overwritten).param("matched",matched).param("unmatched",unmatched).param("ambiguous",ambiguous).param("id",batchId).update();
         return new Result(batchNo,rows.size(),rows.size(),added,overwritten,0,matched,unmatched,ambiguous);
     }
-    private List<DischargeImportRow> read(MultipartFile file){try{return EasyExcel.read(file.getInputStream()).head(DischargeImportRow.class).sheet().doReadSync();}catch(IOException|RuntimeException e){throw new IllegalArgumentException("Excel读取失败："+e.getMessage(),e);}}
-    private Long find(DischargeImportRow r){return jdbc.sql("SELECT id FROM patient_encounter WHERE inpatient_no=:no AND admission_times=:times").param("no",r.inpatientNo.trim()).param("times",r.admissionTimes).query(Long.class).optional().orElse(null);}
+    private List<DischargeImportRow> read(MultipartFile file) {
+        return ExcelSheetRows.read(file).stream().filter(row -> ExcelSheetRows.value(row, "住院号") != null).map(row -> {
+            DischargeImportRow result = new DischargeImportRow();
+            result.inpatientNo = ExcelSheetRows.value(row, "住院号");
+            result.admissionTimes = ExcelSheetRows.integer(row, "住院次数", "住院次");
+            result.patientName = ExcelSheetRows.value(row, "姓名", "患者姓名");
+            result.wardName = ExcelSheetRows.value(row, "住院病区", "所属科室");
+            result.feeType = ExcelSheetRows.value(row, "费别", "医保类型");
+            result.doctorName = ExcelSheetRows.value(row, "主管医生");
+            result.doctorEmployeeNo = ExcelSheetRows.value(row, "主管医生工号", "工号");
+            result.admittedAt = ExcelSheetRows.value(row, "入区日期", "入院日期");
+            result.plannedDischargeAt = ExcelSheetRows.value(row, "预计出院时间", "预计出院日期");
+            result.actualDischargeAt = ExcelSheetRows.value(row, "实际出院时间", "出院日期");
+            return result;
+        }).toList();
+    }private Long find(DischargeImportRow r){return jdbc.sql("SELECT id FROM patient_encounter WHERE inpatient_no=:no AND admission_times=:times").param("no",r.inpatientNo.trim()).param("times",r.admissionTimes).query(Long.class).optional().orElse(null);}
     private long insert(DischargeImportRow r,DoctorMatch d){return jdbc.sql("INSERT INTO patient_encounter(inpatient_no,admission_times,patient_name,department_id,ward_name,fee_type,doctor_name_source,doctor_employee_no,doctor_user_id,doctor_match_status,admitted_at,discharged_at) VALUES (:no,:times,:name,:department,:ward,:fee,:doctor,:employee,:doctorUserId,:doctorStatus,:admitted,:discharged) RETURNING id").param("no",r.inpatientNo.trim()).param("times",r.admissionTimes).param("name",r.patientName.trim()).param("department",departmentId(r.wardName)).param("ward",trim(r.wardName)).param("fee",trim(r.feeType)).param("doctor",trim(r.doctorName)).param("employee",trim(r.doctorEmployeeNo)).param("doctorUserId",d.userId()).param("doctorStatus",d.status()).param("admitted",date(r.admittedAt)).param("discharged",date(r.actualDischargeAt)).query(Long.class).single();}
     private void update(long id,DischargeImportRow r,DoctorMatch d){jdbc.sql("UPDATE patient_encounter SET patient_name=:name,department_id=COALESCE(:department,department_id),ward_name=COALESCE(:ward,ward_name),fee_type=COALESCE(:fee,fee_type),doctor_name_source=COALESCE(:doctor,doctor_name_source),doctor_employee_no=COALESCE(:employee,doctor_employee_no),doctor_user_id=CASE WHEN :employee IS NULL THEN doctor_user_id ELSE :doctorUserId END,doctor_match_status=CASE WHEN :employee IS NULL THEN doctor_match_status ELSE :doctorStatus END,admitted_at=COALESCE(:admitted,admitted_at),discharged_at=COALESCE(:discharged,discharged_at),source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=:id").param("name",r.patientName.trim()).param("department",departmentId(r.wardName)).param("ward",trim(r.wardName)).param("fee",trim(r.feeType)).param("doctor",trim(r.doctorName)).param("employee",trim(r.doctorEmployeeNo)).param("doctorUserId",d.userId()).param("doctorStatus",d.status()).param("admitted",date(r.admittedAt)).param("discharged",date(r.actualDischargeAt)).param("id",id).update();}
     private void upsertDischarge(long id,DischargeImportRow r){jdbc.sql("INSERT INTO discharge_record(encounter_id,planned_discharge_at,actual_discharge_at,planned_discharge_updated_at) VALUES (:id,:planned,:actual,CASE WHEN CAST(:planned AS TIMESTAMPTZ) IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END) ON CONFLICT(encounter_id) DO UPDATE SET planned_discharge_at=COALESCE(EXCLUDED.planned_discharge_at,discharge_record.planned_discharge_at),planned_discharge_updated_at=CASE WHEN EXCLUDED.planned_discharge_at IS NULL THEN discharge_record.planned_discharge_updated_at ELSE CURRENT_TIMESTAMP END,actual_discharge_at=COALESCE(EXCLUDED.actual_discharge_at,discharge_record.actual_discharge_at),updated_at=CURRENT_TIMESTAMP").param("id",id).param("planned",date(r.plannedDischargeAt)).param("actual",date(r.actualDischargeAt)).update();}
 
     private void validateRows(List<DischargeImportRow> rows){List<ImportError> errors=new ArrayList<>();Set<String> keys=new HashSet<>();for(int i=0;i<rows.size();i++){DischargeImportRow r=rows.get(i);int n=i+2;required(errors,n,r,"住院号",r.inpatientNo);required(errors,n,r,"姓名",r.patientName);required(errors,n,r,"住院病区",r.wardName);if(r.admissionTimes==null||r.admissionTimes<1)error(errors,n,r,"住院次数",String.valueOf(r.admissionTimes),"INVALID_FORMAT","住院次数必须为正整数");if(!blank(r.inpatientNo)&&r.admissionTimes!=null&&!keys.add(r.inpatientNo.trim()+"#"+r.admissionTimes))error(errors,n,r,"住院号+住院次数",r.inpatientNo+"/"+r.admissionTimes,"DUPLICATE_KEY_IN_FILE","文件内存在重复住院记录");validateDate(errors,n,r,"入区日期",r.admittedAt);validateDate(errors,n,r,"预计出院时间",r.plannedDischargeAt);validateDate(errors,n,r,"实际出院时间",r.actualDischargeAt);if(!blank(r.wardName)&&departmentId(r.wardName)==null)error(errors,n,r,"住院病区",r.wardName,"DEPARTMENT_NOT_FOUND","科室无法匹配");}if(!errors.isEmpty())throw new ImportValidationException(errors);}
-    private Long departmentId(String name){return blank(name)?null:jdbc.sql("SELECT id FROM sys_department WHERE department_name=:name AND enabled=true").param("name",name.trim()).query(Long.class).optional().orElse(null);}
+    private Long departmentId(String name){return blank(name)?null:jdbc.sql("SELECT id FROM sys_department WHERE department_name=:name AND enabled=true ORDER BY id LIMIT 1").param("name",name.trim()).query(Long.class).optional().orElse(null);}
     private DoctorMatch matchDoctor(String no){if(blank(no))return new DoctorMatch(null,"NOT_FOUND");List<Long> ids=jdbc.sql("SELECT id FROM sys_user WHERE employee_no=:no AND enabled=true").param("no",no.trim()).query(Long.class).list();return ids.size()==1?new DoctorMatch(ids.getFirst(),"MATCHED"):new DoctorMatch(null,ids.isEmpty()?"NOT_FOUND":"AMBIGUOUS");}
     private static void validateFile(MultipartFile f){if(f==null||f.isEmpty())throw new IllegalArgumentException("请选择Excel文件");String n=f.getOriginalFilename()==null?"":f.getOriginalFilename().toLowerCase();if(!n.endsWith(".xlsx"))throw new IllegalArgumentException("仅支持xlsx文件");}
     private static void required(List<ImportError> e,int n,DischargeImportRow r,String f,String v){if(blank(v))error(e,n,r,f,v,"MISSING_REQUIRED",f+"不能为空");}private static void validateDate(List<ImportError> e,int n,DischargeImportRow r,String f,String v){if(blank(v))return;try{date(v);}catch(IllegalArgumentException x){error(e,n,r,f,v,"INVALID_FORMAT",x.getMessage());}}private static void error(List<ImportError> e,int n,DischargeImportRow r,String f,String v,String c,String m){e.add(new ImportError(n,r.inpatientNo,r.admissionTimes,f,v,c,m));}

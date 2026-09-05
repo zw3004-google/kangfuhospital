@@ -31,7 +31,7 @@ class CsrfSessionIntegrationTest {
     }
     @Autowired MockMvc mvc;
     @Autowired JdbcClient jdbc;
-    private SessionTestClient admin() throws Exception { return new SessionTestClient(mvc).login("admin", "kfyy123"); }
+    private SessionTestClient admin() throws Exception { return new SessionTestClient(mvc).login("admin", "kfyy123!"); }
     private Map<String, String> state() {
         Map<String, String> state = new TreeMap<>();
         for (String table : List.of("arrears_record", "discharge_record", "sys_user", "sys_role_permission", "sys_user_role", "operation_audit_log")) {
@@ -68,10 +68,10 @@ class CsrfSessionIntegrationTest {
     }
     @Test void loginRequiresTokenAndOldPreLoginTokenIsRejectedAfterAuthentication() throws Exception {
         var client = new SessionTestClient(mvc);
-        mvc.perform(post("/api/auth/login").session(client.session).param("username", "admin").param("password", "kfyy123"))
+        mvc.perform(post("/api/auth/login").session(client.session).param("username", "admin").param("password", "kfyy123!"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.data.code").value("CSRF_INVALID"));
         String old = client.token;
-        client.login("admin", "kfyy123");
+        client.login("admin", "kfyy123!");
         mvc.perform(post("/api/auth/logout").session(client.session).header(client.header, old))
                 .andExpect(status().isForbidden());
         mvc.perform(post("/api/auth/logout").with(client.auth())).andExpect(status().isOk());
@@ -96,9 +96,9 @@ class CsrfSessionIntegrationTest {
     }
     @Test void validBasicCredentialsNeverAuthenticateOrRestoreExpiredSession() throws Exception {
         var client = admin(); client.session.invalidate();
-        mvc.perform(get("/api/system/me").with(httpBasic("admin", "kfyy123")))
+        mvc.perform(get("/api/system/me").with(httpBasic("admin", "kfyy123!")))
                 .andExpect(status().isUnauthorized()).andExpect(header().doesNotExist("WWW-Authenticate"));
-        mvc.perform(put("/api/arrears/records/1").with(httpBasic("admin", "kfyy123")).header(client.header, client.token))
+        mvc.perform(put("/api/arrears/records/1").with(httpBasic("admin", "kfyy123!")).header(client.header, client.token))
                 .andExpect(status().isUnauthorized());
     }
     @Test void disablingAccountInvalidatesExistingSession() throws Exception {

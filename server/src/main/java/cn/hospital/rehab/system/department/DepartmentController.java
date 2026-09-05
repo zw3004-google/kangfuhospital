@@ -26,6 +26,14 @@ public class DepartmentController {
         return ApiResponse.ok(service.create(request));
     }
 
+    @PostMapping("/batch/enable")
+    ApiResponse<Void> batchEnable(@Valid @RequestBody DepartmentIdsRequest request) { service.setEnabled(request.ids(), true); return ApiResponse.ok(null); }
+    @PostMapping("/batch/disable")
+    ApiResponse<Void> batchDisable(@Valid @RequestBody DepartmentIdsRequest request) { service.setEnabled(request.ids(), false); return ApiResponse.ok(null); }
+    @DeleteMapping("/{id}")
+    ApiResponse<Void> delete(@PathVariable long id) { service.delete(id); return ApiResponse.ok(null); }
+    @DeleteMapping("/batch")
+    ApiResponse<Void> batchDelete(@Valid @RequestBody DepartmentIdsRequest request) { service.delete(request.ids()); return ApiResponse.ok(null); }
     @PostMapping("/{id}/enable")
     ApiResponse<Department> enable(@PathVariable long id) { return ApiResponse.ok(service.setEnabled(id, true)); }
 

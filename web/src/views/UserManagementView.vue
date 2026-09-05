@@ -7,6 +7,7 @@ interface Department { id: number; departmentCode: string; departmentName: strin
 interface Role { id: number; roleCode: string; roleName: string; builtIn: boolean; enabled: boolean }
 interface User { id: number; loginName: string; displayName: string; employeeNo: string; wecomUserId: string; departmentId: number; departmentName: string; enabled: boolean; mustChangePassword: boolean; roles: Role[] }
 interface PageResult<T> { items: T[]; total: number; page: number; pageSize: number }
+interface ImportFeedback { filename: string; total: number; imported: number; failed: number }
 
 const activeTab = ref('users')
 const loading = ref(false)
@@ -14,6 +15,10 @@ const users = ref<User[]>([])
 const departments = ref<Department[]>([])
 const roles = ref<Role[]>([])
 const total = ref(0)
+const selectedUsers = ref<User[]>([])
+const selectedDepartments = ref<Department[]>([])
+const userImportFeedback = ref<ImportFeedback | null>(null)
+const departmentImportFeedback = ref<ImportFeedback | null>(null)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
 const query = reactive({ keyword: '', departmentId: undefined as number | undefined, page: 1, pageSize: initialPageSize })
 const userDialog = ref(false)
@@ -90,7 +95,20 @@ async function toggleUser(user: User) {
   catch (error) { ElMessage.error(messageOf(error)) }
 }
 
-async function toggleDepartment(department: Department) {
+async function batchUsers(action: 'enable'|'disable'|'delete') {
+  const ids = selectedUsers.value.map(user => user.id); if (!ids.length) return
+  const label = action === 'enable' ? '启用' : action === 'disable' ? '停用' : '删除'
+  try { await ElMessageBox.confirm(`确认批量${label} ${ids.length} 名用户？`, `批量${label}确认`, { type: 'warning' }) } catch { return }
+  try { await http.request({ method: action === 'delete' ? 'delete' : 'post', url: action === 'delete' ? '/system/users/batch' : `/system/users/batch/${action}`, data: { ids } }); ElMessage.success(`已批量${label}`); selectedUsers.value=[]; await loadUsers() } catch (error) { ElMessage.error(messageOf(error)) }
+}
+async function deleteUser(user: User) { selectedUsers.value=[user]; await batchUsers('delete') }
+async function batchDepartments(action: 'enable'|'disable'|'delete') {
+  const ids = selectedDepartments.value.map(department => department.id); if (!ids.length) return
+  const label = action === 'enable' ? '启用' : action === 'disable' ? '停用' : '删除'
+  try { await ElMessageBox.confirm(`确认批量${label} ${ids.length} 个科室？`, `批量${label}确认`, { type: 'warning' }) } catch { return }
+  try { await http.request({ method: action === 'delete' ? 'delete' : 'post', url: action === 'delete' ? '/system/departments/batch' : `/system/departments/batch/${action}`, data: { ids } }); ElMessage.success(`已批量${label}`); selectedDepartments.value=[]; await loadReferences() } catch (error) { ElMessage.error(messageOf(error)) }
+}
+async function deleteDepartment(department: Department) { selectedDepartments.value=[department]; await batchDepartments('delete') }async function toggleDepartment(department: Department) {
   const action = department.enabled ? '停用' : '启用'
   await ElMessageBox.confirm(`确认${action}科室“${department.departmentName}”？`, `${action}确认`, { type: 'warning' })
   try { await http.post(`/system/departments/${department.id}/${department.enabled ? 'disable' : 'enable'}`); ElMessage.success(`${action}成功`); await loadReferences() }
@@ -98,7 +116,7 @@ async function toggleDepartment(department: Department) {
 }
 
 async function resetPassword(user: User) {
-  await ElMessageBox.confirm(`将“${user.displayName}”的密码重置为系统初始密码，并要求下次登录修改。`, '重置密码', { type: 'warning' })
+  await ElMessageBox.confirm(`将“${user.displayName}”的密码重置为 kfyy123!，并要求下次登录修改。`, '重置密码', { type: 'warning' })
   try { await http.post(`/system/users/${user.id}/reset-password`); ElMessage.success('密码已重置') }
   catch (error) { ElMessage.error(messageOf(error)) }
 }
@@ -133,9 +151,13 @@ async function upload(path: string, event: Event, refresh: () => Promise<void>) 
   const form = new FormData(); form.append('file', file)
   try {
     const response = await http.post<ApiResponse<{ total: number; imported: number }>>(path, form)
-    ElMessage.success(`已导入 ${response.data.data.imported}/${response.data.data.total} 条数据`)
-    await refresh()
-  } catch (error) { ElMessage.error(messageOf(error)) }
+    const data = response.data.data
+    const feedback = { filename: file.name, total: data.total, imported: data.imported, failed: Math.max(0, data.total - data.imported) }
+    if (path.includes('/users/')) userImportFeedback.value = feedback
+    else departmentImportFeedback.value = feedback
+    ElMessage.success(`导入成功：${feedback.imported}/${feedback.total} 条`)
+    try { await refresh() } catch { ElMessage.warning('导入已成功，列表刷新失败，请手动刷新页面查看结果') }
+  } catch (error) { ElMessage.error(`导入失败：${messageOf(error)}`) }
   finally { input.value = '' }
 }
 
@@ -165,11 +187,11 @@ onMounted(initialize)
         <div class="transfer-actions" v-permission="'PERM_API_USER_MANAGE'">
           <el-button @click="download('/system/users/template', '用户导入模板.xlsx')">用户模板导出</el-button>
           <el-button @click="download('/system/users/export', '用户导出.xlsx')">用户导出</el-button>
-          <el-button type="primary" plain @click="pickFile('user-import-file')">用户导入</el-button>
-          <input id="user-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/users/import', $event, initialize)" />
+          <el-button type="primary" plain @click="pickFile('user-import-file')">用户导入</el-button><el-button :disabled="!selectedUsers.length" @click="batchUsers('enable')">批量启用</el-button><el-button :disabled="!selectedUsers.length" @click="batchUsers('disable')">批量停用</el-button><el-button :disabled="!selectedUsers.length" type="danger" @click="batchUsers('delete')">批量删除</el-button>
+          <input id="user-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/users/import', $event, initialize)" /><el-alert v-if="userImportFeedback" type="success" :closable="false" class="import-feedback" :title="`用户导入成功：${userImportFeedback.imported}/${userImportFeedback.total} 条`" :description="`文件：${userImportFeedback.filename}；成功 ${userImportFeedback.imported} 条，失败 ${userImportFeedback.failed} 条。`" />
         </div>
         <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!users.length" description="暂无用户"/><article v-for="user in users" :key="user.id" class="mobile-record-card admin-user-card"><header><div><strong>{{user.displayName}}</strong><span>{{user.loginName}} · {{user.employeeNo}}</span></div><el-tag :type="user.enabled?'success':'info'">{{user.enabled?'启用':'停用'}}</el-tag></header><dl><div><dt>所属科室</dt><dd>{{user.departmentName||'—'}}</dd></div><div><dt>企微 ID</dt><dd>{{user.wecomUserId||'—'}}</dd></div><div class="admin-card-wide"><dt>角色</dt><dd><el-tag v-for="role in user.roles" :key="role.id" size="small" class="role-tag">{{role.roleName}}</el-tag><span v-if="!user.roles.length">未分配</span></dd></div></dl><footer><el-button link type="primary" @click="openRoles(user)">分配角色</el-button><el-button link @click="resetPassword(user)">重置密码</el-button><el-button link :type="user.enabled?'danger':'primary'" @click="toggleUser(user)">{{user.enabled?'停用':'启用'}}</el-button></footer></article></div>
-        <el-table v-loading="loading" :data="users" stripe class="desktop-only">
+        <el-table v-loading="loading" :data="users" stripe class="desktop-only" @selection-change="selectedUsers=$event"><el-table-column type="selection" width="48" />
           <el-table-column prop="displayName" label="姓名" width="120" />
           <el-table-column prop="employeeNo" label="工号" min-width="130" />
           <el-table-column prop="loginName" label="登录名" min-width="140" />
@@ -182,30 +204,23 @@ onMounted(initialize)
           <el-table-column label="操作" width="250" fixed="right"><template #default="scope">
             <el-button v-permission="'PERM_API_USER_MANAGE'" link type="primary" @click="openRoles(scope.row)">分配角色</el-button>
             <el-button v-permission="'PERM_API_USER_MANAGE'" link @click="resetPassword(scope.row)">重置密码</el-button>
-            <el-button v-permission="'PERM_API_USER_MANAGE'" link :type="scope.row.enabled?'danger':'primary'" @click="toggleUser(scope.row)">{{ scope.row.enabled?'停用':'启用' }}</el-button>
+            <el-button v-permission="'PERM_API_USER_MANAGE'" link :type="scope.row.enabled?'danger':'primary'" @click="toggleUser(scope.row)">{{ scope.row.enabled?'停用':'启用' }}</el-button><el-button v-permission="'PERM_API_USER_MANAGE'" link type="danger" @click="deleteUser(scope.row)">删除</el-button>
           </template></el-table-column>
         </el-table>
         <el-pagination v-model:current-page="query.page" v-model:page-size="query.pageSize" :page-sizes="[20,50,100,200]" :total="total" layout="total, sizes, prev, pager, next" class="pagination" @change="loadUsers" />
-      </el-tab-pane>
-        <div class="transfer-actions" v-permission="'PERM_API_DEPT_MANAGE'">
-          <el-button @click="download('/system/departments/template', '科室导入模板.xlsx')">科室模板导出</el-button>
-          <el-button @click="download('/system/departments/export', '科室导出.xlsx')">科室导出</el-button>
-          <el-button type="primary" plain @click="pickFile('department-import-file')">科室导入</el-button>
-          <input id="department-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/departments/import', $event, loadReferences)" />
-        </div>
-      <el-tab-pane label="科室管理" name="departments">
+      </el-tab-pane><el-tab-pane label="科室管理" name="departments"><div class="transfer-actions" v-permission="'PERM_API_DEPT_MANAGE'"><el-button @click="download('/system/departments/template', '科室导入模板.xlsx')">科室模板导出</el-button><el-button @click="download('/system/departments/export', '科室导出.xlsx')">科室导出</el-button><el-button type="primary" plain @click="pickFile('department-import-file')">科室导入</el-button><input id="department-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/departments/import', $event, loadReferences)" /><el-alert v-if="departmentImportFeedback" type="success" :closable="false" class="import-feedback" :title="`科室导入成功：${departmentImportFeedback.imported}/${departmentImportFeedback.total} 条`" :description="`文件：${departmentImportFeedback.filename}；成功 ${departmentImportFeedback.imported} 条，失败 ${departmentImportFeedback.failed} 条。`" /><el-button :disabled="!selectedDepartments.length" @click="batchDepartments('enable')">批量启用</el-button><el-button :disabled="!selectedDepartments.length" @click="batchDepartments('disable')">批量停用</el-button><el-button :disabled="!selectedDepartments.length" type="danger" @click="batchDepartments('delete')">批量删除</el-button></div>
         <div class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!departments.length" description="暂无科室"/><article v-for="department in departments" :key="department.id" class="mobile-record-card"><header><div><strong>{{department.departmentName}}</strong><span>{{department.departmentCode}}</span></div><el-tag :type="department.enabled?'success':'info'">{{department.enabled?'启用':'停用'}}</el-tag></header><footer><el-button link :type="department.enabled?'danger':'primary'" @click="toggleDepartment(department)">{{department.enabled?'停用科室':'启用科室'}}</el-button></footer></article></div>
-        <el-table :data="departments" stripe class="desktop-only">
+        <el-table :data="departments" stripe class="desktop-only" @selection-change="selectedDepartments=$event"><el-table-column type="selection" width="48" />
           <el-table-column prop="departmentCode" label="科室编码" min-width="180" />
           <el-table-column prop="departmentName" label="科室名称" min-width="220" />
           <el-table-column label="状态" width="120"><template #default="scope"><el-tag :type="scope.row.enabled?'success':'info'">{{ scope.row.enabled?'启用':'停用' }}</el-tag></template></el-table-column>
-          <el-table-column label="操作" width="100"><template #default="scope"><el-button link :type="scope.row.enabled?'danger':'primary'" @click="toggleDepartment(scope.row)">{{ scope.row.enabled?'停用':'启用' }}</el-button></template></el-table-column>
+          <el-table-column label="操作" width="100"><template #default="scope"><el-button link :type="scope.row.enabled?'danger':'primary'" @click="toggleDepartment(scope.row)">{{ scope.row.enabled?'停用':'启用' }}</el-button><el-button link type="danger" @click="deleteDepartment(scope.row)">删除</el-button></template></el-table-column>
         </el-table>
       </el-tab-pane>
     </el-tabs>
   </section>
 
-  <el-dialog v-model="userDialog" title="新增用户" width="500px" class="mobile-full-dialog"><el-alert title="登录名根据姓名拼音自动生成；工号用于主管医生唯一匹配；角色创建后单独分配。" type="info" :closable="false" /><el-form label-position="top" class="dialog-form"><el-form-item label="姓名" required><el-input v-model="userForm.displayName" maxlength="128" /></el-form-item><el-form-item label="工号" required><el-input v-model="userForm.employeeNo" maxlength="64" /></el-form-item><el-form-item label="企微ID" required><el-input v-model="userForm.wecomUserId" maxlength="128" /></el-form-item><el-form-item label="所属科室" required><el-select v-model="userForm.departmentId" style="width:100%"><el-option v-for="item in departments.filter(i=>i.enabled)" :key="item.id" :label="item.departmentName" :value="item.id" /></el-select></el-form-item></el-form><template #footer><el-button @click="userDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createUser">保存</el-button></template></el-dialog>
+  <el-dialog v-model="userDialog" title="新增用户" width="500px" class="mobile-full-dialog"><el-alert title="登录名使用企微ID；工号用于主管医生唯一匹配；角色创建后单独分配。" type="info" :closable="false" /><el-form label-position="top" class="dialog-form"><el-form-item label="姓名" required><el-input v-model="userForm.displayName" maxlength="128" /></el-form-item><el-form-item label="工号" required><el-input v-model="userForm.employeeNo" maxlength="64" /></el-form-item><el-form-item label="企微ID" required><el-input v-model="userForm.wecomUserId" maxlength="128" /></el-form-item><el-form-item label="所属科室" required><el-select v-model="userForm.departmentId" style="width:100%"><el-option v-for="item in departments.filter(i=>i.enabled)" :key="item.id" :label="item.departmentName" :value="item.id" /></el-select></el-form-item></el-form><template #footer><el-button @click="userDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createUser">保存</el-button></template></el-dialog>
   <el-dialog v-model="departmentDialog" title="新增科室" width="500px" class="mobile-full-dialog"><el-form label-position="top"><el-form-item label="科室编码" required><el-input v-model="departmentForm.departmentCode" placeholder="例如：KF01" /></el-form-item><el-form-item label="科室名称" required><el-input v-model="departmentForm.departmentName" /></el-form-item></el-form><template #footer><el-button @click="departmentDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createDepartment">保存</el-button></template></el-dialog>
   <el-dialog v-model="roleDialog" :title="`分配角色：${roleForm.displayName}`" width="560px" class="mobile-full-dialog"><el-checkbox-group v-model="roleForm.roleIds" class="role-grid"><el-checkbox v-for="role in roles" :key="role.id" :value="role.id" border>{{ role.roleName }}</el-checkbox></el-checkbox-group><template #footer><el-button @click="roleDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveRoles">保存</el-button></template></el-dialog>
 </template>
