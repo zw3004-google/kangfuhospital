@@ -117,6 +117,32 @@ async function saveRoles() {
   finally { saving.value = false }
 }
 
+async function download(path: string, filename: string) {
+  try {
+    const response = await http.get(path, { responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
+    const link = document.createElement('a'); link.href = url; link.download = filename; link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) { ElMessage.error(messageOf(error)) }
+}
+
+async function upload(path: string, event: Event, refresh: () => Promise<void>) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const form = new FormData(); form.append('file', file)
+  try {
+    const response = await http.post<ApiResponse<{ total: number; imported: number }>>(path, form)
+    ElMessage.success(`已导入 ${response.data.data.imported}/${response.data.data.total} 条数据`)
+    await refresh()
+  } catch (error) { ElMessage.error(messageOf(error)) }
+  finally { input.value = '' }
+}
+
+function pickFile(id: string) {
+  document.getElementById(id)?.click()
+}
+
 function messageOf(error: unknown) { return error instanceof Error ? error.message : '操作失败' }
 onMounted(initialize)
 </script>
@@ -135,6 +161,12 @@ onMounted(initialize)
             <el-option v-for="item in departments" :key="item.id" :label="item.departmentName" :value="item.id" />
           </el-select>
           <el-button type="primary" plain @click="query.page=1; loadUsers()">查询</el-button>
+        </div>
+        <div class="transfer-actions" v-permission="'PERM_API_USER_MANAGE'">
+          <el-button @click="download('/system/users/template', '用户导入模板.xlsx')">用户模板导出</el-button>
+          <el-button @click="download('/system/users/export', '用户导出.xlsx')">用户导出</el-button>
+          <el-button type="primary" plain @click="pickFile('user-import-file')">用户导入</el-button>
+          <input id="user-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/users/import', $event, initialize)" />
         </div>
         <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!users.length" description="暂无用户"/><article v-for="user in users" :key="user.id" class="mobile-record-card admin-user-card"><header><div><strong>{{user.displayName}}</strong><span>{{user.loginName}} · {{user.employeeNo}}</span></div><el-tag :type="user.enabled?'success':'info'">{{user.enabled?'启用':'停用'}}</el-tag></header><dl><div><dt>所属科室</dt><dd>{{user.departmentName||'—'}}</dd></div><div><dt>企微 ID</dt><dd>{{user.wecomUserId||'—'}}</dd></div><div class="admin-card-wide"><dt>角色</dt><dd><el-tag v-for="role in user.roles" :key="role.id" size="small" class="role-tag">{{role.roleName}}</el-tag><span v-if="!user.roles.length">未分配</span></dd></div></dl><footer><el-button link type="primary" @click="openRoles(user)">分配角色</el-button><el-button link @click="resetPassword(user)">重置密码</el-button><el-button link :type="user.enabled?'danger':'primary'" @click="toggleUser(user)">{{user.enabled?'停用':'启用'}}</el-button></footer></article></div>
         <el-table v-loading="loading" :data="users" stripe class="desktop-only">
@@ -155,6 +187,12 @@ onMounted(initialize)
         </el-table>
         <el-pagination v-model:current-page="query.page" v-model:page-size="query.pageSize" :page-sizes="[20,50,100,200]" :total="total" layout="total, sizes, prev, pager, next" class="pagination" @change="loadUsers" />
       </el-tab-pane>
+        <div class="transfer-actions" v-permission="'PERM_API_DEPT_MANAGE'">
+          <el-button @click="download('/system/departments/template', '科室导入模板.xlsx')">科室模板导出</el-button>
+          <el-button @click="download('/system/departments/export', '科室导出.xlsx')">科室导出</el-button>
+          <el-button type="primary" plain @click="pickFile('department-import-file')">科室导入</el-button>
+          <input id="department-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/departments/import', $event, loadReferences)" />
+        </div>
       <el-tab-pane label="科室管理" name="departments">
         <div class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!departments.length" description="暂无科室"/><article v-for="department in departments" :key="department.id" class="mobile-record-card"><header><div><strong>{{department.departmentName}}</strong><span>{{department.departmentCode}}</span></div><el-tag :type="department.enabled?'success':'info'">{{department.enabled?'启用':'停用'}}</el-tag></header><footer><el-button link :type="department.enabled?'danger':'primary'" @click="toggleDepartment(department)">{{department.enabled?'停用科室':'启用科室'}}</el-button></footer></article></div>
         <el-table :data="departments" stripe class="desktop-only">

@@ -37,6 +37,14 @@ public class UserRepository {
                 .param("departmentId", departmentId == null ? 0L : departmentId).query(Long.class).single();
     }
 
+    public List<UserSummary> findAll() {
+        return jdbc.sql("""
+                SELECT u.*, d.department_name FROM sys_user u
+                LEFT JOIN sys_department d ON d.id=u.department_id
+                ORDER BY d.department_code, u.employee_no, u.id
+                """).query(this::map).list();
+    }
+
     public boolean loginNameExists(String loginName) {
         return jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_user WHERE login_name=:name)")
                 .param("name", loginName).query(Boolean.class).single();

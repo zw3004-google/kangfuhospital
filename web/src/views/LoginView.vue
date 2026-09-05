@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { http } from '../api/http'
@@ -9,6 +9,27 @@ const router = useRouter()
 const user = ref('')
 const pass = ref('')
 const loading = ref(false)
+
+const remember = ref(true)
+
+onMounted(async () => {
+  user.value = localStorage.getItem('kangfu.remembered-login') ?? ''
+  try {
+    const credential = await (navigator.credentials as any)?.get?.({ password: true, mediation: 'optional' })
+    if (credential) { user.value = credential.id ?? user.value; pass.value = credential.password ?? ''; remember.value = true }
+  } catch { /* the browser may not expose its credential store */ }
+})
+
+async function saveCredential() {
+  if (!remember.value) { localStorage.removeItem('kangfu.remembered-login'); return }
+  localStorage.setItem('kangfu.remembered-login', user.value)
+  const PasswordCredential = (window as any).PasswordCredential
+  try {
+    if (PasswordCredential && navigator.credentials?.store) {
+      await navigator.credentials.store(new PasswordCredential({ id: user.value, password: pass.value, name: user.value }))
+    }
+  } catch { /* a credential-store failure must not invalidate a successful login */ }
+}
 
 const query = new URLSearchParams(location.search)
 if (query.get('timeout') === '1' || query.get('reason') === 'expired') {
@@ -29,6 +50,7 @@ const login = async () => {
     await http.post('/auth/login', credentials, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
     await http.get('/system/me')
     await loadPermissions()
+    await saveCredential()
     const redirect = query.get('redirect')
     await router.replace(redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard')
   } catch (error) {
@@ -53,6 +75,7 @@ const login = async () => {
         <label for="login-account">账号</label>
         <el-input id="login-account" v-model="user" name="username" autocomplete="username" placeholder="请输入登录名" size="large" autofocus />
 
+        <el-checkbox v-model="remember">记住密码（使用浏览器密码管理器）</el-checkbox>
         <label for="login-password">密码</label>
         <el-input id="login-password" v-model="pass" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" show-password size="large" />
 

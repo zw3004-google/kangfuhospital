@@ -108,7 +108,7 @@ watch(() => route.fullPath, refreshShell, { immediate: true })
       <el-header class="topbar">
         <button class="mobile-menu-button" type="button" aria-label="打开功能导航" @click="mobileMenuOpen = true">☰</button>
         <div class="topbar-title"><span class="crumb">康复医院运营管理系统</span><h1>{{ title }}</h1></div>
-        <div class="user-chip"><span>{{ currentUser || '未登录' }}</span><el-button link @click="logout">退出</el-button></div>
+        <div class="user-chip"><a href="/help/康复医院运营管理系统用户手册_V1.1.0.docx" download>帮助手册 V1.1.0</a><span class="version-chip">V1.1.0</span><span>{{ currentUser || '未登录' }}</span><router-link to="/system/change-password">修改密码</router-link><el-button link @click="logout">退出</el-button></div>
       </el-header>
       <el-main class="main-content"><div v-if="!online" class="network-status-banner" role="status">院内网络已断开，未保存内容将保留在当前会话，请恢复网络后重试。</div><router-view /></el-main>
     </el-container>

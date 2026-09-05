@@ -45,6 +45,11 @@ public class DepartmentRepository {
                 """).param("code", code).param("name", name).query(DepartmentRepository::map).single();
     }
 
+    public boolean codeExists(String code) {
+        return jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_department WHERE department_code=:code)")
+                .param("code", code).query(Boolean.class).single();
+    }
+
     public Department setEnabled(long id, boolean enabled) {
         return jdbc.sql("""
                 UPDATE sys_department SET enabled=:enabled, updated_at=CURRENT_TIMESTAMP
