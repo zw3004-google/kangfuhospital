@@ -14,7 +14,8 @@ const users = ref<User[]>([])
 const departments = ref<Department[]>([])
 const roles = ref<Role[]>([])
 const total = ref(0)
-const query = reactive({ keyword: '', departmentId: undefined as number | undefined, page: 1, pageSize: 50 })
+const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
+const query = reactive({ keyword: '', departmentId: undefined as number | undefined, page: 1, pageSize: initialPageSize })
 const userDialog = ref(false)
 const departmentDialog = ref(false)
 const roleDialog = ref(false)
@@ -135,7 +136,8 @@ onMounted(initialize)
           </el-select>
           <el-button type="primary" plain @click="query.page=1; loadUsers()">查询</el-button>
         </div>
-        <el-table v-loading="loading" :data="users" stripe>
+        <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!users.length" description="暂无用户"/><article v-for="user in users" :key="user.id" class="mobile-record-card admin-user-card"><header><div><strong>{{user.displayName}}</strong><span>{{user.loginName}} · {{user.employeeNo}}</span></div><el-tag :type="user.enabled?'success':'info'">{{user.enabled?'启用':'停用'}}</el-tag></header><dl><div><dt>所属科室</dt><dd>{{user.departmentName||'—'}}</dd></div><div><dt>企微 ID</dt><dd>{{user.wecomUserId||'—'}}</dd></div><div class="admin-card-wide"><dt>角色</dt><dd><el-tag v-for="role in user.roles" :key="role.id" size="small" class="role-tag">{{role.roleName}}</el-tag><span v-if="!user.roles.length">未分配</span></dd></div></dl><footer><el-button link type="primary" @click="openRoles(user)">分配角色</el-button><el-button link @click="resetPassword(user)">重置密码</el-button><el-button link :type="user.enabled?'danger':'primary'" @click="toggleUser(user)">{{user.enabled?'停用':'启用'}}</el-button></footer></article></div>
+        <el-table v-loading="loading" :data="users" stripe class="desktop-only">
           <el-table-column prop="displayName" label="姓名" width="120" />
           <el-table-column prop="employeeNo" label="工号" min-width="130" />
           <el-table-column prop="loginName" label="登录名" min-width="140" />
@@ -154,7 +156,8 @@ onMounted(initialize)
         <el-pagination v-model:current-page="query.page" v-model:page-size="query.pageSize" :page-sizes="[20,50,100,200]" :total="total" layout="total, sizes, prev, pager, next" class="pagination" @change="loadUsers" />
       </el-tab-pane>
       <el-tab-pane label="科室管理" name="departments">
-        <el-table :data="departments" stripe>
+        <div class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!departments.length" description="暂无科室"/><article v-for="department in departments" :key="department.id" class="mobile-record-card"><header><div><strong>{{department.departmentName}}</strong><span>{{department.departmentCode}}</span></div><el-tag :type="department.enabled?'success':'info'">{{department.enabled?'启用':'停用'}}</el-tag></header><footer><el-button link :type="department.enabled?'danger':'primary'" @click="toggleDepartment(department)">{{department.enabled?'停用科室':'启用科室'}}</el-button></footer></article></div>
+        <el-table :data="departments" stripe class="desktop-only">
           <el-table-column prop="departmentCode" label="科室编码" min-width="180" />
           <el-table-column prop="departmentName" label="科室名称" min-width="220" />
           <el-table-column label="状态" width="120"><template #default="scope"><el-tag :type="scope.row.enabled?'success':'info'">{{ scope.row.enabled?'启用':'停用' }}</el-tag></template></el-table-column>
@@ -164,7 +167,7 @@ onMounted(initialize)
     </el-tabs>
   </section>
 
-  <el-dialog v-model="userDialog" title="新增用户" width="500px"><el-alert title="登录名根据姓名拼音自动生成；工号用于主管医生唯一匹配；角色创建后单独分配。" type="info" :closable="false" /><el-form label-position="top" class="dialog-form"><el-form-item label="姓名" required><el-input v-model="userForm.displayName" maxlength="128" /></el-form-item><el-form-item label="工号" required><el-input v-model="userForm.employeeNo" maxlength="64" /></el-form-item><el-form-item label="企微ID" required><el-input v-model="userForm.wecomUserId" maxlength="128" /></el-form-item><el-form-item label="所属科室" required><el-select v-model="userForm.departmentId" style="width:100%"><el-option v-for="item in departments.filter(i=>i.enabled)" :key="item.id" :label="item.departmentName" :value="item.id" /></el-select></el-form-item></el-form><template #footer><el-button @click="userDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createUser">保存</el-button></template></el-dialog>
-  <el-dialog v-model="departmentDialog" title="新增科室" width="500px"><el-form label-position="top"><el-form-item label="科室编码" required><el-input v-model="departmentForm.departmentCode" placeholder="例如：KF01" /></el-form-item><el-form-item label="科室名称" required><el-input v-model="departmentForm.departmentName" /></el-form-item></el-form><template #footer><el-button @click="departmentDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createDepartment">保存</el-button></template></el-dialog>
-  <el-dialog v-model="roleDialog" :title="`分配角色：${roleForm.displayName}`" width="560px"><el-checkbox-group v-model="roleForm.roleIds" class="role-grid"><el-checkbox v-for="role in roles" :key="role.id" :value="role.id" border>{{ role.roleName }}</el-checkbox></el-checkbox-group><template #footer><el-button @click="roleDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveRoles">保存</el-button></template></el-dialog>
+  <el-dialog v-model="userDialog" title="新增用户" width="500px" class="mobile-full-dialog"><el-alert title="登录名根据姓名拼音自动生成；工号用于主管医生唯一匹配；角色创建后单独分配。" type="info" :closable="false" /><el-form label-position="top" class="dialog-form"><el-form-item label="姓名" required><el-input v-model="userForm.displayName" maxlength="128" /></el-form-item><el-form-item label="工号" required><el-input v-model="userForm.employeeNo" maxlength="64" /></el-form-item><el-form-item label="企微ID" required><el-input v-model="userForm.wecomUserId" maxlength="128" /></el-form-item><el-form-item label="所属科室" required><el-select v-model="userForm.departmentId" style="width:100%"><el-option v-for="item in departments.filter(i=>i.enabled)" :key="item.id" :label="item.departmentName" :value="item.id" /></el-select></el-form-item></el-form><template #footer><el-button @click="userDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createUser">保存</el-button></template></el-dialog>
+  <el-dialog v-model="departmentDialog" title="新增科室" width="500px" class="mobile-full-dialog"><el-form label-position="top"><el-form-item label="科室编码" required><el-input v-model="departmentForm.departmentCode" placeholder="例如：KF01" /></el-form-item><el-form-item label="科室名称" required><el-input v-model="departmentForm.departmentName" /></el-form-item></el-form><template #footer><el-button @click="departmentDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="createDepartment">保存</el-button></template></el-dialog>
+  <el-dialog v-model="roleDialog" :title="`分配角色：${roleForm.displayName}`" width="560px" class="mobile-full-dialog"><el-checkbox-group v-model="roleForm.roleIds" class="role-grid"><el-checkbox v-for="role in roles" :key="role.id" :value="role.id" border>{{ role.roleName }}</el-checkbox></el-checkbox-group><template #footer><el-button @click="roleDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveRoles">保存</el-button></template></el-dialog>
 </template>

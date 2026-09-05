@@ -13,7 +13,7 @@
 
     <groupId>cn.hospital.rehab</groupId>
     <artifactId>kangfu-server</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>kangfu-server</name>
     <description>康复医院运营管理系统后端</description>
 

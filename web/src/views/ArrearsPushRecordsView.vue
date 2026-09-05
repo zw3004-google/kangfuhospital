@@ -47,7 +47,8 @@ const rows = ref<PushRecord[]>([])
 const selectedRows = ref<PushRecord[]>([])
 const total = ref(0)
 const page = ref(1)
-const pageSize = ref(50)
+const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
+const pageSize = ref(initialPageSize)
 const status = ref('')
 const dateRange = ref<[string, string] | []>([])
 const loading = ref(false)
@@ -227,6 +228,7 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
         </div>
         <el-button
           v-if="canRetry"
+          class="desktop-only"
           type="danger"
           plain
           :disabled="selectedRows.length === 0"
@@ -235,11 +237,12 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
         >批量重发<span v-if="selectedRows.length">（{{ selectedRows.length }}）</span></el-button>
       </div>
 
+      <div v-loading="loading" class="mobile-only mobile-record-list push-mobile-list"><el-empty v-if="!loading&&!rows.length" description="暂无推送记录"/><article v-for="row in rows" :key="row.id" class="mobile-record-card"><header><div><strong>{{row.recipientName||'—'}}</strong><span>{{fmt(row.pushTime)}}</span></div><el-tag :type="statusTagType(row.status)" effect="light">{{row.displayStatus}}</el-tag></header><p class="push-mobile-content">{{row.contentSummary}}</p><dl><div><dt>触发方式</dt><dd>{{triggerLabel(row.triggerType)}}</dd></div><div><dt>重试次数</dt><dd>{{row.retryCount}}</dd></div></dl><p v-if="row.lastError" class="mobile-record-alert">{{row.lastError}}</p><footer><el-button link type="primary" @click="showAttempts(row)">尝试详情</el-button></footer></article></div>
       <el-table
         v-loading="loading"
         :data="rows"
         stripe
-        class="push-record-table"
+        class="push-record-table desktop-only"
         empty-text="暂无符合条件的推送记录"
         @selection-change="onSelectionChange"
       >
@@ -288,10 +291,11 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
       <div class="push-trace-note">所有推送均保留接收人、推送时间、实际内容、发送结果及每次自动重试或人工重发记录。批量重发仅处理当前页明确勾选的失败任务。</div>
     </div>
 
-    <el-dialog v-model="dialog" :title="`发送尝试 · 任务 #${current?.id || ''}`" width="78%">
+    <el-dialog v-model="dialog" :title="`发送尝试 · 任务 #${current?.id || ''}`" width="78%" class="mobile-full-dialog">
       <div v-loading="attemptsLoading" class="push-attempt-wrap">
         <el-empty v-if="!attemptsLoading && !attempts.length" description="尚无发送尝试" />
-        <el-table v-else-if="attempts.length" :data="attempts">
+        <div v-else-if="attempts.length" class="mobile-only mobile-record-list"><article v-for="item in attempts" :key="item.attemptNo" class="mobile-record-card"><header><div><strong>第 {{item.attemptNo}} 次尝试</strong><span>{{fmt(item.attemptedAt||item.scheduledAt)}}</span></div><el-tag :type="statusTagType(item.status)">{{attemptStatusLabel(item.status)}}</el-tag></header><dl><div><dt>触发方式</dt><dd>{{triggerLabel(item.triggerType)}}</dd></div><div><dt>接收人</dt><dd>{{item.recipientName||'—'}}</dd></div></dl><p v-if="item.errorMessage" class="mobile-record-alert">{{item.errorCode||'错误'}}：{{item.errorMessage}}</p></article></div>
+        <el-table v-else-if="attempts.length" :data="attempts" class="desktop-only">
           <el-table-column prop="attemptNo" label="#" width="55" />
           <el-table-column label="触发方式" width="110">
             <template #default="scope">{{ triggerLabel(scope.row.triggerType) }}</template>

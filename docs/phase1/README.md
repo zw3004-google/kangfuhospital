@@ -1,6 +1,6 @@
 # 阶段 1：开发与测试环境基线
 
-> 执行日期：2026-08-31  
+> 执行日期：2026-08-31
 > 状态：`VERIFIED`——Docker、PostgreSQL、Flyway、管理员初始化、固定测试数据、后端测试和前端构建均已验证。
 >
 > 本文记录阶段 1 的历史验收快照（Flyway V1～V9、12 个测试）。当前最新基线为阶段 4：Flyway V1～V13、23 个后端测试及前端完整联调，参见 [`../phase4/README.md`](../phase4/README.md)。
@@ -26,7 +26,7 @@
 
 ```powershell
 $env:APP_BOOTSTRAP_ADMIN_ENABLED='true'
-$env:APP_INITIAL_PASSWORD='Kfyy@2026'
+$env:APP_INITIAL_PASSWORD='kfyy123'
 $env:APP_BOOTSTRAP_ADMIN_EMPLOYEE_NO='ADMIN'
 $env:APP_BOOTSTRAP_ADMIN_WECOM_USER_ID='admin'
 ```

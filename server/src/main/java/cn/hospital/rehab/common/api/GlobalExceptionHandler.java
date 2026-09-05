@@ -18,6 +18,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ResponseStatus(HttpStatus.CONFLICT)
+    @ExceptionHandler(ConcurrentUpdateException.class)
+    public ApiResponse<Void> handleConcurrentUpdate(ConcurrentUpdateException exception) {
+        return ApiResponse.error(exception.getMessage());
+    }
+
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(ImportValidationException.class)
     public ApiResponse<ImportFailure> handleImportValidation(ImportValidationException exception) {
@@ -39,8 +45,8 @@ public class GlobalExceptionHandler {
 
     @ResponseStatus(HttpStatus.FORBIDDEN)
     @ExceptionHandler(AccessDeniedException.class)
-    public ApiResponse<Void> handleAccessDenied(AccessDeniedException exception) {
-        return ApiResponse.error(exception.getMessage());
+    public ApiResponse<java.util.Map<String, String>> handleAccessDenied(AccessDeniedException exception) {
+        return ApiResponse.error(exception.getMessage(), java.util.Map.of("code", "ACCESS_DENIED"));
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)

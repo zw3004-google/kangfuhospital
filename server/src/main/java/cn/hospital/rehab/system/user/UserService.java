@@ -20,7 +20,7 @@ public class UserService {
 
     public UserService(UserRepository users, DepartmentRepository departments, LoginNameGenerator loginNames,
                        PasswordEncoder passwordEncoder,
-                       @Value("${app.security.initial-password:Kfyy@2026}") String initialPassword) {
+                       @Value("${app.security.initial-password:kfyy123}") String initialPassword) {
         this.users = users;
         this.departments = departments;
         this.loginNames = loginNames;

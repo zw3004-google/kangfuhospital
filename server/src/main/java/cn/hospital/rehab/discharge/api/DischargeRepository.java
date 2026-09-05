@@ -114,6 +114,7 @@ public class DischargeRepository {
                 follow_up_details=COALESCE(CAST(:followUpDetails AS JSONB),d.follow_up_details),
                 updated_at=CURRENT_TIMESTAMP FROM patient_encounter e
                 WHERE d.encounter_id=e.id AND d.id=:id
+                  AND (CAST(:expectedUpdatedAt AS TIMESTAMPTZ) IS NULL OR d.updated_at=:expectedUpdatedAt)
                 """ + buildScopeWhere(scope))
                 .param("planned", parseDate(request.plannedDischargeAt()))
                 .param("special", request.specialPatient())
@@ -122,9 +123,10 @@ public class DischargeRepository {
                 .param("day30", request.followUpDay30()).param("day60", request.followUpDay60())
                 .param("outpatient", parseDate(request.outpatientAppointmentAt())).param("outpatientArrived",request.outpatientArrived())
                 .param("outpatientArrivalAt",parseDate(request.outpatientArrivalAt())).param("outpatientReporter",request.outpatientReporter())
-                .param("outpatientNoShowReason",request.outpatientNoShowReason()).param("followUpDetails",request.followUpDetailsJson()).param("id", id);
+                .param("outpatientNoShowReason",request.outpatientNoShowReason()).param("followUpDetails",request.followUpDetailsJson())
+                .param("expectedUpdatedAt",request.expectedUpdatedAt()).param("id", id);
         bindScope(query, scope);
-        if (query.update() == 0) throw new AccessDeniedException("无权修改该患者数据");
+        if (query.update() == 0) throw new cn.hospital.rehab.common.api.ConcurrentUpdateException("记录已被其他人员更新，请刷新后核对再保存");
         recalculateAbnormalCodes(id);
         DischargeSummary updated=findById(id);
         DischargeUpdateValidator.validateAfter(updated);
@@ -232,7 +234,7 @@ public class DischargeRepository {
 
     DischargeSummary map(ResultSet r, int row) throws SQLException {
         OffsetDateTime planned=r.getObject("planned_discharge_at",OffsetDateTime.class), actual=r.getObject("actual_discharge_at",OffsetDateTime.class);
-        return new DischargeSummary(r.getLong("id"),r.getLong("encounter_id"),r.getString("inpatient_no"),r.getInt("admission_times"),r.getString("patient_name"),r.getString("gender"),r.getString("department_name"),r.getString("primary_diagnosis"),r.getString("doctor_name_source"),r.getObject("admitted_at",OffsetDateTime.class),planned,actual,r.getObject("outpatient_appointment_at",OffsetDateTime.class),(Boolean)r.getObject("outpatient_arrived"),r.getObject("outpatient_arrival_at",OffsetDateTime.class),r.getString("outpatient_reporter"),r.getString("outpatient_no_show_reason"),r.getObject("latest_nutrition_appointment_at",OffsetDateTime.class),r.getObject("latest_home_rehab_appointment_at",OffsetDateTime.class),r.getObject("latest_follow_up_at",OffsetDateTime.class),planned==null?"未填报":actual==null?"已填报":"已出院",parseAbnormalCodes(r.getString("abnormal_codes")),r.getString("abnormal_reason"),r.getBoolean("is_special_patient"),r.getString("special_reason"),(Boolean)r.getObject("follow_up_required"),r.getString("follow_up_day7"),r.getString("follow_up_day30"),r.getString("follow_up_day60"),r.getString("follow_up_details"));
+        return new DischargeSummary(r.getLong("id"),r.getLong("encounter_id"),r.getString("inpatient_no"),r.getInt("admission_times"),r.getString("patient_name"),r.getString("gender"),r.getString("department_name"),r.getString("primary_diagnosis"),r.getString("doctor_name_source"),r.getObject("admitted_at",OffsetDateTime.class),planned,actual,r.getObject("outpatient_appointment_at",OffsetDateTime.class),(Boolean)r.getObject("outpatient_arrived"),r.getObject("outpatient_arrival_at",OffsetDateTime.class),r.getString("outpatient_reporter"),r.getString("outpatient_no_show_reason"),r.getObject("latest_nutrition_appointment_at",OffsetDateTime.class),r.getObject("latest_home_rehab_appointment_at",OffsetDateTime.class),r.getObject("latest_follow_up_at",OffsetDateTime.class),planned==null?"未填报":actual==null?"已填报":"已出院",parseAbnormalCodes(r.getString("abnormal_codes")),r.getString("abnormal_reason"),r.getBoolean("is_special_patient"),r.getString("special_reason"),(Boolean)r.getObject("follow_up_required"),r.getString("follow_up_day7"),r.getString("follow_up_day30"),r.getString("follow_up_day60"),r.getString("follow_up_details"),r.getObject("updated_at",OffsetDateTime.class));
     }
 
     static List<String> parseAbnormalCodes(String value) {

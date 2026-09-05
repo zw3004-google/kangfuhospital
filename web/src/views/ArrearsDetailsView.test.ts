@@ -21,6 +21,10 @@ describe('ArrearsDetailsView 主管医生工号', () => {
     expect(wrapper.find('input[placeholder="住院号 / 姓名 / 主管医生 / 医生工号"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('主管医生工号')
     expect(wrapper.text()).toContain('D001')
+    expect(wrapper.find('.mobile-filter-toolbar').exists()).toBe(true)
+    expect(wrapper.findAll('.mobile-record-card')).toHaveLength(1)
+    expect(wrapper.find('.arrears-mobile-card').text()).toContain('600.00 元')
+    expect(wrapper.find('.arrears-mobile-card').text()).toContain('康复一病区')
 
   })
 })

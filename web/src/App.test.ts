@@ -7,12 +7,13 @@ import App from './App.vue'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
   loadPermissions: vi.fn(),
   hasPermission: vi.fn(),
   clearPermissions: vi.fn(),
 }))
 
-vi.mock('./api/http', () => ({ http: { get: mocks.get } }))
+vi.mock('./api/http', () => ({ http: { get: mocks.get, post: mocks.post } }))
 vi.mock('./auth', () => ({
   loadPermissions: mocks.loadPermissions,
   hasPermission: mocks.hasPermission,
@@ -21,6 +22,7 @@ vi.mock('./auth', () => ({
 describe('App 登录后菜单刷新', () => {
   beforeEach(() => {
     mocks.get.mockReset().mockResolvedValue({ data: { data: { loginName: 'admin', mustChangePassword: true } } })
+    mocks.post.mockReset().mockResolvedValue({ data: { data: null } })
     mocks.loadPermissions.mockReset().mockResolvedValue(new Set(['ROLE_SYSTEM_ADMIN']))
     mocks.hasPermission.mockReset().mockReturnValue(true)
   })
@@ -50,7 +52,15 @@ describe('App 登录后菜单刷新', () => {
 
     expect(mocks.loadPermissions).toHaveBeenCalledOnce()
     expect(wrapper.find('.sidebar').exists()).toBe(true)
+    expect(wrapper.find('.mobile-menu-button').attributes('aria-label')).toBe('打开功能导航')
+    expect(wrapper.find('.privacy-watermark').exists()).toBe(true)
+    const onlineSpy = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    window.dispatchEvent(new Event('offline'))
+    await flushPromises()
+    expect(wrapper.find('.network-status-banner').text()).toContain('院内网络已断开')
+    onlineSpy.mockRestore()
     expect(wrapper.text()).toContain('欠费管理')
+
     expect(wrapper.text()).toContain('预出院管理')
     expect(wrapper.text()).toContain('系统管理')
     expect(wrapper.text()).toContain('预计出院管理')

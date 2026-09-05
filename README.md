@@ -23,6 +23,11 @@ git clone git@github.com:zw3004-google/kangfuhospital.git
 
 仓库不提交本地环境变量、密钥、构建产物、依赖缓存、运行数据及临时备份。实际密码和企业微信密钥必须通过环境变量注入。
 
+## 版本发布
+
+- [发布说明](docs/RELEASE_NOTES.md)
+- [部署历史](docs/DEPLOYMENT_HISTORY.md)
+
 ## 项目基线文档
 
 - [架构与开发续作说明](docs/ARCHITECTURE_AND_DEVELOPMENT_CONTEXT.md)

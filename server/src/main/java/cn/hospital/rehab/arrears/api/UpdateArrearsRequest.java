@@ -2,7 +2,11 @@ package cn.hospital.rehab.arrears.api;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record UpdateArrearsRequest(@NotBlank String paymentStatus, String arrearsReason, String recoveryProgress) {
+public record UpdateArrearsRequest(@NotBlank String paymentStatus, String arrearsReason, String recoveryProgress,
+        java.time.OffsetDateTime expectedUpdatedAt) {
+    public UpdateArrearsRequest(String paymentStatus,String arrearsReason,String recoveryProgress) {
+        this(paymentStatus,arrearsReason,recoveryProgress,null);
+    }
     public UpdateArrearsRequest {
         paymentStatus = paymentStatus == null ? null : paymentStatus.trim().toUpperCase();
         recoveryProgress = recoveryProgress == null || recoveryProgress.isBlank()

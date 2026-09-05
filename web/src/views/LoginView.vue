@@ -10,9 +10,9 @@ const user = ref('')
 const pass = ref('')
 const loading = ref(false)
 
-if (new URLSearchParams(location.search).get('timeout') === '1') {
+const query = new URLSearchParams(location.search)
+if (query.get('timeout') === '1' || query.get('reason') === 'expired') {
   ElMessage.warning('会话已超时，请重新登录')
-  history.replaceState(null, '', '/login')
 }
 
 const login = async () => {
@@ -23,14 +23,15 @@ const login = async () => {
 
   loading.value = true
   clearPermissions()
-  sessionStorage.setItem('basicAuth', btoa(unescape(encodeURIComponent(`${user.value}:${pass.value}`))))
 
   try {
+    const credentials = new URLSearchParams({ username: user.value, password: pass.value })
+    await http.post('/auth/login', credentials, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
     await http.get('/system/me')
     await loadPermissions()
-    await router.replace('/dashboard')
+    const redirect = query.get('redirect')
+    await router.replace(redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard')
   } catch (error) {
-    sessionStorage.removeItem('basicAuth')
     clearPermissions()
     ElMessage.error(error instanceof Error ? error.message : '账号或密码错误，或账号已被锁定')
   } finally {

@@ -74,7 +74,8 @@ const activeCategory = ref<DetailCategory>('BOARD')
 const detailRows = ref<DetailRow[]>([])
 const detailTotal = ref(0)
 const detailPage = ref(1)
-const detailPageSize = ref(50)
+const initialDetailPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
+const detailPageSize = ref(initialDetailPageSize)
 const detailLoading = ref(false)
 const departments = ref<Array<{ id: number; departmentName: string }>>([])
 const departmentId = ref<number>()
@@ -283,7 +284,14 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
         <el-button v-permission="'PERM_API_DISCHARGE_EXPORT'" :loading="exporting" @click="exportDetails">导出 XLSX</el-button>
       </div>
       <el-empty v-if="!detailLoading && !detailRows.length" description="当前条件下暂无业务明细" />
-      <el-table v-else v-loading="detailLoading" :data="detailRows" stripe class="analysis-detail-table">
+      <div v-else v-loading="detailLoading" class="mobile-only mobile-record-list analysis-mobile-list">
+        <article v-for="row in detailRows" :key="row.id" class="mobile-record-card">
+          <header><div><strong>{{ row.patientName }}</strong><span>{{ row.inpatientNo }} · 第{{ row.admissionTimes }}次住院</span></div><el-tag effect="light">{{ activeCategory }}</el-tag></header>
+          <dl><div><dt>所属科室</dt><dd>{{ row.departmentName || '—' }}</dd></div><div><dt>主管医生</dt><dd>{{ row.doctorName || '—' }}</dd></div><div><dt>预计出院</dt><dd>{{ formatTime(row.plannedDischargeAt) }}</dd></div><div><dt>实际出院</dt><dd>{{ formatTime(row.actualDischargeAt) }}</dd></div><div v-if="activeCategory === 'NUTRITION'"><dt>营养会诊</dt><dd>{{ formatTime(row.latestNutritionAppointmentAt) }}</dd></div><div v-if="activeCategory === 'HOME_REHAB'"><dt>居家康复</dt><dd>{{ formatTime(row.latestHomeRehabAppointmentAt) }}</dd></div><div v-if="activeCategory === 'OUTPATIENT'"><dt>复诊预约</dt><dd>{{ formatTime(row.outpatientAppointmentAt) }}</dd></div></dl>
+          <p v-if="activeCategory === 'ABNORMAL'" class="mobile-record-alert">{{ abnormalText(row) }}</p>
+        </article>
+      </div>
+      <el-table v-if="detailRows.length" v-loading="detailLoading" :data="detailRows" stripe class="analysis-detail-table desktop-only">
         <el-table-column prop="patientName" label="患者姓名" width="110" fixed="left" />
         <el-table-column prop="gender" label="患者性别" width="90" />
         <el-table-column prop="inpatientNo" label="住院号" width="130" fixed="left" />

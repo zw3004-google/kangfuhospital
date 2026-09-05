@@ -8,6 +8,16 @@ check() {
   if "$@" >/dev/null 2>&1; then echo "[通过] ${label}"; else echo "[失败] ${label}"; failed=1; fi
 }
 
+check_header() {
+  local label="$1" url="$2" header="$3" expected="$4"
+  if curl -fsSI "${url}" | tr -d '\r' | grep -qiE "^${header}:.*${expected}"; then
+    echo "[通过] ${label}"
+  else
+    echo "[失败] ${label}"
+    failed=1
+  fi
+}
+
 check "操作系统版本" grep -q '22.03' /etc/openEuler-release
 check "CPU 架构为 x86_64" test "$(uname -m)" = "x86_64"
 check "时区为 Asia/Shanghai" test "$(timedatectl show -p Timezone --value)" = "Asia/Shanghai"
@@ -17,6 +27,10 @@ check "Nginx 运行" systemctl is-active --quiet nginx
 check "后端健康接口" curl -fsS http://127.0.0.1:8080/actuator/health
 check "首页可访问" curl -fsS http://127.0.0.1/
 check "8080 未对外监听" bash -c "! ss -lnt | grep -qE '0\.0\.0\.0:8080|\[::\]:8080'"
+check "可信浏览器来源已配置" test -n "$(read_env_value APP_ALLOWED_ORIGINS)"
+check_header "首页禁止 MIME 猜测" http://127.0.0.1/ X-Content-Type-Options nosniff
+check_header "首页禁止嵌入" http://127.0.0.1/ X-Frame-Options DENY
+check_header "首页 CSP 已启用" http://127.0.0.1/ Content-Security-Policy "frame-ancestors 'none'"
 
 if [[ ${failed} -eq 0 ]]; then
   echo "全部检查通过。测试地址：http://172.16.196.111/"

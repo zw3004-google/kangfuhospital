@@ -43,7 +43,8 @@ onMounted(load)
         <el-select v-model="filters.enabled" placeholder="状态（全部）" clearable><el-option label="已启用" value="true"/><el-option label="已停用" value="false"/></el-select>
         <el-button type="primary" plain @click="load">查询</el-button><el-button @click="reset">重置</el-button>
       </div>
-      <el-table v-loading="loading" :data="records" stripe>
+      <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!records.length" description="暂无费别系数"/><article v-for="row in records" :key="row.id" class="mobile-record-card fee-mobile-card"><header><div><strong>{{row.feeType}}</strong><span>{{row.feeCode}} · 版本 #{{row.id}}</span></div><el-tag :type="row.enabled?'success':'info'">{{row.enabled?'已启用':'已停用'}}</el-tag></header><div class="mobile-record-primary"><span>当前系数</span><strong>{{Number(row.coefficient).toFixed(4)}}</strong></div><dl><div><dt>生效时间</dt><dd>{{formatTime(row.effectiveAt)}}</dd></div><div><dt>最近操作人</dt><dd>{{operator(row)}}</dd></div><div class="admin-card-wide"><dt>计算示例</dt><dd>{{example(row.coefficient)}}</dd></div></dl><footer><el-button link type="primary" @click="openVersion(row)">新增版本</el-button><el-button link :type="row.enabled?'danger':'primary'" @click="changeStatus(row)">{{row.enabled?'停用':'启用'}}</el-button></footer></article></div>
+      <el-table v-loading="loading" :data="records" stripe class="desktop-only">
         <el-table-column prop="feeCode" label="费别编码" min-width="120"/>
         <el-table-column prop="feeType" label="费别名称" min-width="200"/>
         <el-table-column label="系数" width="110"><template #default="scope">{{ Number(scope.row.coefficient).toFixed(4) }}</template></el-table-column>
@@ -58,7 +59,7 @@ onMounted(load)
       <div class="fee-note">费别编码保存后不可修改；欠费导入模板无需填写编码，仍按费别名称匹配。系数调整只影响后续导入。</div>
     </section>
   </div>
-  <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
+  <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" class="mobile-full-dialog">
     <el-alert :title="versionMode?'编码和名称继承原费别；新增版本默认为停用状态。':'费别编码仅支持字母和数字，保存后不可修改。'" type="info" :closable="false"/>
     <el-form label-position="top" class="dialog-form">
       <el-form-item label="费别编码" required><el-input v-model="form.feeCode" maxlength="32" :disabled="versionMode" placeholder="例如：YB01" @input="form.feeCode=String($event).toUpperCase()"/></el-form-item>

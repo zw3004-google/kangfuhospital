@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "0.1.0-test-$(Get-Date -Format yyyyMMdd)-x86_64-full",
+  [string]$Version = "1.0.0-test-$(Get-Date -Format yyyyMMdd)-x86_64-full",
   [string]$DependencyRoot = ""
 )
 $ErrorActionPreference = 'Stop'
@@ -14,7 +14,7 @@ if ($DependencyRoot) {
   if (Test-Path "$resolvedDeps\rpms") { Copy-Item "$resolvedDeps\rpms\*.rpm" "$staging\rpms" -Force }
   if (Test-Path "$resolvedDeps\runtime\jre-21") { Copy-Item "$resolvedDeps\runtime\jre-21" "$staging\runtime" -Recurse -Force }
 }
-Copy-Item "$root\server\target\kangfu-server-0.1.0-SNAPSHOT.jar" "$staging\app\kangfu-server.jar"
+Copy-Item "$root\server\target\kangfu-server-1.0.0.jar" "$staging\app\kangfu-server.jar"
 Copy-Item "$root\web\dist\*" "$staging\app\web" -Recurse -Force
 Get-ChildItem "$staging\scripts\*.sh" | ForEach-Object { $text = [IO.File]::ReadAllText($_.FullName); [IO.File]::WriteAllText($_.FullName, ($text -replace "`r`n", "`n"), [Text.UTF8Encoding]::new($false)) }
 $manifest = Get-ChildItem $staging -Recurse -File | Where-Object { $_.FullName -notlike '*\checksums\SHA256SUMS' } | ForEach-Object {

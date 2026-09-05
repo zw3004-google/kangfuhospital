@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginView from './LoginView.vue'
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(), replace: vi.fn(), clearPermissions: vi.fn(), loadPermissions: vi.fn(), warning: vi.fn(), error: vi.fn(),
+  get: vi.fn(), post: vi.fn(), replace: vi.fn(), clearPermissions: vi.fn(), loadPermissions: vi.fn(), warning: vi.fn(), error: vi.fn(),
 }))
 
-vi.mock('../api/http', () => ({ http: { get: mocks.get } }))
+vi.mock('../api/http', () => ({ http: { get: mocks.get, post: mocks.post } }))
 vi.mock('../auth', () => ({ clearPermissions: mocks.clearPermissions, loadPermissions: mocks.loadPermissions }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ replace: mocks.replace }) }))
 vi.mock('element-plus', async (importOriginal) => {
@@ -21,6 +21,7 @@ describe('LoginView', () => {
   beforeEach(() => {
     sessionStorage.clear()
     mocks.get.mockReset()
+    mocks.post.mockReset()
     mocks.replace.mockReset()
     mocks.clearPermissions.mockReset()
     mocks.loadPermissions.mockReset().mockResolvedValue(undefined)
@@ -45,20 +46,26 @@ describe('LoginView', () => {
   })
 
   it('登录成功后加载权限并跳转工作台', async () => {
+    mocks.post.mockResolvedValue({ data: { data: null } })
     mocks.get.mockResolvedValue({ data: { data: {} } })
     const wrapper = render()
     await wrapper.find('input[name="username"]').setValue('zhangkj')
     await wrapper.find('input[name="password"]').setValue('password123')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(sessionStorage.getItem('basicAuth')).toBe(btoa('zhangkj:password123'))
+    const [loginPath, credentials, config] = mocks.post.mock.calls[0]
+    expect(loginPath).toBe('/auth/login')
+    expect(credentials).toBeInstanceOf(URLSearchParams)
+    expect(credentials.toString()).toBe('username=zhangkj&password=password123')
+    expect(config.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
+    expect(sessionStorage.getItem('basicAuth')).toBeNull()
     expect(mocks.get).toHaveBeenCalledWith('/system/me')
     expect(mocks.loadPermissions).toHaveBeenCalledOnce()
     expect(mocks.replace).toHaveBeenCalledWith('/dashboard')
   })
 
   it('登录失败后清理临时凭证并显示错误', async () => {
-    mocks.get.mockRejectedValue(new Error('账号或密码错误'))
+    mocks.post.mockRejectedValue(new Error('账号或密码错误'))
     const wrapper = render()
     await wrapper.find('input[name="username"]').setValue('wrong')
     await wrapper.find('input[name="password"]').setValue('wrong')

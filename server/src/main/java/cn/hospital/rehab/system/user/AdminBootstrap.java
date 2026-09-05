@@ -20,7 +20,7 @@ public class AdminBootstrap implements ApplicationRunner {
     private final String wecomUserId;
 
     public AdminBootstrap(JdbcClient jdbc, PasswordEncoder passwordEncoder,
-                          @Value("${app.security.initial-password:Kfyy@2026}") String password,
+                          @Value("${app.security.initial-password:kfyy123}") String password,
                           @Value("${app.bootstrap-admin.employee-no:ADMIN}") String employeeNo,
                           @Value("${app.bootstrap-admin.wecom-user-id:admin}") String wecomUserId) {
         this.jdbc = jdbc;
