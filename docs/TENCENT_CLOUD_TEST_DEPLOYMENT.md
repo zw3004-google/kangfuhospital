@@ -1,6 +1,6 @@
 # 腾讯云测试环境部署记录
 
-> 更新时间：2026-09-05
+> 更新时间：2026-09-06
 > 用途：功能测试与演示，不作为生产环境。
 
 ## 访问与管理员
@@ -44,7 +44,7 @@ Internet -> Nginx :80/:443
 ## 运行资源
 
 - 应用：`/opt/kangfu-test`
-- 当前发布：`V1.1.1`，`/opt/kangfu-test/releases/V1.1.1`；源码提交 `f75f4cb8350bdfd9cbc2c583eae02dd5ce67ee11`。详见 [部署历史](DEPLOYMENT_HISTORY.md)。
+- 当前发布：`V1.1.2`，`/opt/kangfu-test/releases/V1.1.2`；源码提交 `807d6f374814ae85ab719bcc4f6c1e64e34d7578`。详见 [部署历史](DEPLOYMENT_HISTORY.md)。
 - JRE：`/opt/kangfu-test/runtime`
 - 环境配置：`/etc/kangfu-test/kangfu.env`
 - 数据库配置：`/etc/kangfu-test/postgres.env`
