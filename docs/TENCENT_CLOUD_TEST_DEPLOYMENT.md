@@ -44,7 +44,7 @@ Internet -> Nginx :80/:443
 ## 运行资源
 
 - 应用：`/opt/kangfu-test`
-- 当前发布：`V1.1.2`，`/opt/kangfu-test/releases/V1.1.2`；源码提交 `807d6f374814ae85ab719bcc4f6c1e64e34d7578`。详见 [部署历史](DEPLOYMENT_HISTORY.md)。
+- 当前发布：`V1.1.3`，`/opt/kangfu-test/releases/V1.1.3`；源码提交 `21b8e22620e88f579d2390643b1535fa569e9c5c`。详见 [部署历史](DEPLOYMENT_HISTORY.md)。
 - JRE：`/opt/kangfu-test/runtime`
 - 环境配置：`/etc/kangfu-test/kangfu.env`
 - 数据库配置：`/etc/kangfu-test/postgres.env`
