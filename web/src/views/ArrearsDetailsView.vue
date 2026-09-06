@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';import { useRouter } from 'vue-router';import { ElMessage,ElMessageBox } from 'element-plus';import { ArrowDown } from '@element-plus/icons-vue';import { clearSessionDraft,loadSessionDraft,saveSessionDraft } from '../sessionDraft';import { http,ApiRequestError,type ApiResponse } from '../api/http'
+import { onMounted, reactive, ref, watch } from 'vue';import { useRouter } from 'vue-router';import { ElMessage,ElMessageBox } from 'element-plus';import { ArrowDown } from '@element-plus/icons-vue';import { clearSessionDraft,loadSessionDraft,saveSessionDraft } from '../sessionDraft';import { http,type ApiResponse } from '../api/http'
+import { importFailureFeedback,type ImportFeedback,type ImportResult } from '../importFeedback'
 interface Row{id:number;inpatientNo:string;admissionTimes:number;patientName:string;departmentName:string;wardName:string|null;feeType:string;arrearsType:string;doctorName:string;doctorEmployeeNo:string|null;admittedAt:string|null;dischargedAt:string|null;totalCost:number;prepaidAmount:number;medicalInsurancePaid:number;personalAccountPaid:number;finalRequiredDeposit:number;arrearsAmount:number;inArrears:boolean;paymentStatus:string;arrearsReason:string|null;recoveryProgress:string;previousRecoveryProgress:string;lastOperatedBy:string|null;sourceUpdatedAt:string|null;updatedAt:string|null} interface Page<T>{items:T[];total:number;page:number;pageSize:number}
 interface FilterOptions{departments:{id:number;name:string}[];feeTypes:string[];arrearsTypes:string[]}
 interface Summary{totalPeople:number;inpatientPeople:number;dischargedUnsettledPeople:number;dischargedSettledPeople:number;totalAmount:number;uncollectedPeople:number;legalPeople:number;sourceUpdatedAt:string|null}
 interface HistoryItem{id:number;operatorName:string;operatedAt:string;actionType:string;beforeData:string;afterData:string;changeDescription:string}
-interface ImportResult{batchNo:string;total:number;success:number;failure:number;added:number;overwritten:number;skipped:number}
-interface ImportFailure{batchNo:string|null;errors:unknown[]}
-interface ImportFeedback extends ImportResult{status:'success'|'error';message:string}
 const progressOptions=[['NOT_STARTED','未催缴'],['NEGOTIATING','协商中'],['REFUSED','拒绝缴费'],['LEGAL_ACTION','移交法务发起诉讼'],['PAID','已缴费']] as const
 const progressLabel=(value:string)=>progressOptions.find(([code])=>code===value)?.[1]||value
 type TagType='primary'|'success'|'warning'|'info'|'danger'
@@ -24,7 +22,7 @@ const loadSummary=async()=>{summaryLoading.value=true;try{summary.value=(await h
 const loadAll=()=>Promise.all([load(),loadSummary()])
 const loadFilterOptions=async()=>{try{filterOptions.value=(await http.get<ApiResponse<FilterOptions>>('/arrears/records/filter-options')).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'筛选项加载失败')}}
 const reset=()=>{keyword.value='';departmentId.value=undefined;arrearsType.value='';feeType.value='';recoveryProgress.value='';inArrears.value=true;page.value=1;loadAll()}
-const upload=async(file:File)=>{if(!/\.xlsx$/i.test(file.name)){ElMessage.error('仅支持 .xlsx 文件');return false}const data=new FormData();data.append('file',file);uploading.value=true;importFeedback.value=null;try{const result=(await http.post<ApiResponse<ImportResult>>('/arrears/import',data)).data.data;importFeedback.value={...result,status:'success',message:'欠费报表导入完成'};ElMessage.success('导入成功');page.value=1;await loadAll()}catch(e){const failure=e instanceof ApiRequestError?e.data as ImportFailure|undefined:undefined;importFeedback.value={status:'error',message:e instanceof Error?e.message:'导入失败',batchNo:failure?.batchNo||'',total:failure?.errors?.length||0,success:0,failure:failure?.errors?.length||0,added:0,overwritten:0,skipped:0};ElMessage.error(importFeedback.value.message)}finally{uploading.value=false}return false}
+const upload=async(file:File)=>{if(!/\.xlsx$/i.test(file.name)){ElMessage.error('仅支持 .xlsx 文件');return false}const data=new FormData();data.append('file',file);uploading.value=true;importFeedback.value=null;try{const result=(await http.post<ApiResponse<ImportResult>>('/arrears/import',data)).data.data;importFeedback.value={...result,status:'success',message:'欠费报表导入完成',remainingErrors:0};ElMessage.success('导入成功');page.value=1;await loadAll()}catch(e){importFeedback.value=importFailureFeedback(e,'欠费报表导入失败');ElMessage.error(importFeedback.value.message)}finally{uploading.value=false}return false}
 const openImportRecords=()=>router.push('/arrears/import-batches')
 const loadHistory=async(id:number)=>{historyLoading.value=true;try{historyItems.value=(await http.get<ApiResponse<HistoryItem[]>>(`/arrears/records/${id}/history`)).data.data}catch(e){historyItems.value=[];ElMessage.error(e instanceof Error?e.message:'操作历史加载失败')}finally{historyLoading.value=false}}
 const edit=(row:Row)=>{current.value=row;form.paymentStatus=row.paymentStatus;form.arrearsReason=row.arrearsReason||'';form.recoveryProgress=row.recoveryProgress||'NOT_STARTED';const draft=loadSessionDraft<typeof form>(`arrears:${row.id}`);if(draft)Object.assign(form,draft);historyItems.value=[];dialog.value=true;loadHistory(row.id)}
@@ -60,6 +58,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <el-alert v-if="importFeedback" :type="importFeedback.status" :closable="true" show-icon class="import-feedback" @close="importFeedback=null">
 <template #title>{{importFeedback.message}}<span v-if="importFeedback.batchNo"> · 批次 {{importFeedback.batchNo}}</span></template>
 <div>总数 {{importFeedback.total}} · 成功 {{importFeedback.success}} · 失败 {{importFeedback.failure}} · 新增 {{importFeedback.added}} · 覆盖 {{importFeedback.overwritten}} · 跳过 {{importFeedback.skipped}}</div>
+<div v-if="importFeedback.status==='error'&&importFeedback.remainingErrors">另有 {{importFeedback.remainingErrors}} 项校验错误，请查看导入记录逐项处理。</div>
 <el-button v-if="importFeedback.status==='error'&&importFeedback.batchNo" link type="primary" @click="openImportRecords">查看导入记录</el-button>
 </el-alert>
 <div v-loading="summaryLoading" class="stat-grid">
