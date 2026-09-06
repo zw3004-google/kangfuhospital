@@ -80,7 +80,7 @@ public class ArrearsImportService {
     }
 
     private long upsertEncounter(ArrearsImportRow row, DoctorMatch doctor) {
-        Long departmentId = jdbc.sql("SELECT id FROM sys_department WHERE department_name=:name AND enabled=true")
+        Long departmentId = jdbc.sql("SELECT id FROM sys_department WHERE department_name=:name AND enabled=true ORDER BY id LIMIT 1")
                 .param("name", row.wardName).query(Long.class).optional().orElse(null);
         return jdbc.sql("""
                 INSERT INTO patient_encounter(inpatient_no,admission_times,patient_name,department_id,ward_name,fee_type,doctor_name_source,doctor_employee_no,doctor_user_id,doctor_match_status,admitted_at,discharged_at)

@@ -1,10 +1,10 @@
 package cn.hospital.rehab.system.department;
 
 import cn.hospital.rehab.common.api.ApiResponse;
+import cn.hospital.rehab.common.api.PageResult;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/system/departments")
@@ -16,9 +16,12 @@ public class DepartmentController {
     }
 
     @GetMapping
-    ApiResponse<List<Department>> list(@RequestParam(required = false) String keyword,
-                                       @RequestParam(required = false) Boolean enabled) {
-        return ApiResponse.ok(service.list(keyword, enabled));
+    ApiResponse<PageResult<Department>> list(@RequestParam(required = false) String departmentCode,
+                                             @RequestParam(required = false) String departmentName,
+                                             @RequestParam(required = false) Boolean enabled,
+                                             @RequestParam(defaultValue = "1") int page,
+                                             @RequestParam(defaultValue = "50") int pageSize) {
+        return ApiResponse.ok(service.list(departmentCode, departmentName, enabled, page, pageSize));
     }
 
     @PostMapping

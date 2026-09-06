@@ -28,7 +28,7 @@ describe('RoleManagementView', () => {
         { id: 11, permissionName: '系统菜单', permissionCode: 'MENU_SYSTEM', permissionType: 'MENU' },
         { id: 12, permissionName: '用户管理', permissionCode: 'API_USER_MANAGE', permissionType: 'API' },
       ])
-      if (url === '/system/departments') return response([])
+      if (url === '/system/departments') return response({ items: [], total: 0, page: 1, pageSize: 200 })
       if (url.endsWith('/departments')) return response([])
       return response([])
     })

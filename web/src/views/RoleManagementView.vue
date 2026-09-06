@@ -6,6 +6,7 @@ import { http, type ApiResponse } from '../api/http'
 interface Role { id: number; roleName: string; roleCode: string }
 interface Permission { id: number; permissionName: string; permissionCode: string; permissionType: string }
 interface Department { id: number; departmentName: string; enabled: boolean }
+interface PageResult<T> { items: T[]; total: number; page: number; pageSize: number }
 
 const roles = ref<Role[]>([])
 const permissions = ref<Permission[]>([])
@@ -27,7 +28,7 @@ const allSelected = computed(() =>
 const load = async () => {
   roles.value = (await http.get<ApiResponse<Role[]>>('/system/roles')).data.data
   permissions.value = (await http.get<ApiResponse<Permission[]>>('/system/permissions')).data.data
-  departments.value = (await http.get<ApiResponse<Department[]>>('/system/departments')).data.data
+  departments.value = (await http.get<ApiResponse<PageResult<Department>>>('/system/departments', { params: { page: 1, pageSize: 200 } })).data.data.items
 }
 
 const choose = async (id: number) => {

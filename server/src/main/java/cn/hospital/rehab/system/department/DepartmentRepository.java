@@ -17,21 +17,38 @@ public class DepartmentRepository {
     }
 
     public List<Department> findAll(String keyword, Boolean enabled) {
-        String cleanKeyword = keyword == null ? "" : keyword.trim();
-        if (enabled == null) {
-            return jdbc.sql("""
-                    SELECT * FROM sys_department
-                    WHERE (:keyword = '' OR department_code ILIKE :pattern OR department_name ILIKE :pattern)
-                    ORDER BY enabled DESC, department_code
-                    """).param("keyword", cleanKeyword).param("pattern", "%" + cleanKeyword + "%")
-                    .query(DepartmentRepository::map).list();
-        }
+        return findPage(keyword, null, enabled, Integer.MAX_VALUE, 0);
+    }
+
+    public List<Department> findPage(String departmentCode, String departmentName, Boolean enabled, int limit, int offset) {
+        String cleanCode = clean(departmentCode);
+        String cleanName = clean(departmentName);
         return jdbc.sql("""
                 SELECT * FROM sys_department
-                WHERE (:keyword = '' OR department_code ILIKE :pattern OR department_name ILIKE :pattern)
-                  AND enabled = :enabled ORDER BY enabled DESC, department_code
-                """).param("keyword", cleanKeyword).param("pattern", "%" + cleanKeyword + "%")
-                .param("enabled", enabled).query(DepartmentRepository::map).list();
+                WHERE (:departmentCode = '' OR department_code ILIKE :codePattern)
+                  AND (:departmentName = '' OR department_name ILIKE :namePattern)
+                  AND (:enabledFilter = 2 OR enabled = CAST(:enabled AS BOOLEAN))
+                ORDER BY enabled DESC, department_code, id
+                LIMIT :limit OFFSET :offset
+                """).param("departmentCode", cleanCode).param("codePattern", "%" + cleanCode + "%")
+                .param("departmentName", cleanName).param("namePattern", "%" + cleanName + "%")
+                .param("enabledFilter", enabled == null ? 2 : (enabled ? 1 : 0))
+                .param("enabled", enabled == null ? false : enabled)
+                .param("limit", limit).param("offset", offset).query(DepartmentRepository::map).list();
+    }
+
+    public long count(String departmentCode, String departmentName, Boolean enabled) {
+        String cleanCode = clean(departmentCode);
+        String cleanName = clean(departmentName);
+        return jdbc.sql("""
+                SELECT COUNT(*) FROM sys_department
+                WHERE (:departmentCode = '' OR department_code ILIKE :codePattern)
+                  AND (:departmentName = '' OR department_name ILIKE :namePattern)
+                  AND (:enabledFilter = 2 OR enabled = CAST(:enabled AS BOOLEAN))
+                """).param("departmentCode", cleanCode).param("codePattern", "%" + cleanCode + "%")
+                .param("departmentName", cleanName).param("namePattern", "%" + cleanName + "%")
+                .param("enabledFilter", enabled == null ? 2 : (enabled ? 1 : 0))
+                .param("enabled", enabled == null ? false : enabled).query(Long.class).single();
     }
 
     public Optional<Department> findById(long id) {
@@ -65,4 +82,5 @@ public class DepartmentRepository {
                 rs.getBoolean("enabled"), rs.getObject("created_at", java.time.OffsetDateTime.class),
                 rs.getObject("updated_at", java.time.OffsetDateTime.class));
     }
+    private static String clean(String value) { return value == null ? "" : value.trim(); }
 }

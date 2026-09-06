@@ -1,9 +1,10 @@
 package cn.hospital.rehab.system.department;
 
+import cn.hospital.rehab.common.api.PageResult;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 
 @Service
 public class DepartmentService {
@@ -13,8 +14,11 @@ public class DepartmentService {
         this.repository = repository;
     }
 
-    public List<Department> list(String keyword, Boolean enabled) {
-        return repository.findAll(keyword, enabled);
+    public PageResult<Department> list(String departmentCode, String departmentName, Boolean enabled, int page, int pageSize) {
+        int safePage = Math.max(page, 1);
+        int safeSize = java.util.Set.of(20, 50, 100, 200).contains(pageSize) ? pageSize : 50;
+        return new PageResult<>(repository.findPage(departmentCode, departmentName, enabled, safeSize, (safePage - 1) * safeSize),
+                repository.count(departmentCode, departmentName, enabled), safePage, safeSize);
     }
 
     @Transactional
