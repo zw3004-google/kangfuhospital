@@ -29,6 +29,13 @@ public class UserController {
     ApiResponse<UserSummary> create(Authentication auth,@Valid @RequestBody CreateUserRequest request) { var u=service.create(request); audit.record(auth,"SYSTEM","USER",String.valueOf(u.id()),"CREATE",null,u); return ApiResponse.ok(u); }
 
     @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @PutMapping("/{id}")
+    ApiResponse<UserSummary> update(Authentication auth, @PathVariable long id, @Valid @RequestBody UpdateUserRequest request) {
+        var before = service.get(id); var updated = service.update(id, request);
+        audit.record(auth, "SYSTEM", "USER", String.valueOf(id), "UPDATE", before, updated);
+        return ApiResponse.ok(updated);
+    }
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
     @PostMapping("/{id}/enable")
     ApiResponse<UserSummary> enable(Authentication auth,@PathVariable long id) { var u=service.setEnabled(id, true); audit.record(auth,"SYSTEM","USER",String.valueOf(id),"ENABLE",null,u); return ApiResponse.ok(u); }
 

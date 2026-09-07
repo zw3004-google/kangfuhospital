@@ -26,6 +26,13 @@ public class DepartmentService {
         return repository.insert(request.departmentCode().trim().toUpperCase(), request.departmentName().trim());
     }
 
+    public Department get(long id) { return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("科室不存在")); }
+
+    @Transactional
+    public Department update(long id, UpdateDepartmentRequest request) {
+        repository.findById(id).orElseThrow(() -> new IllegalArgumentException("科室不存在"));
+        return repository.updateName(id, request.departmentName().trim());
+    }
     @Transactional
     public Department setEnabled(long id, boolean enabled) {
         Department department = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("科室不存在"));

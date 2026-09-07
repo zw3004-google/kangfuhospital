@@ -70,6 +70,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.PUT, "/api/discharge/consultations/**").hasAnyAuthority("PERM_API_DISCHARGE_EDIT", "PERM_FIELD_NUTRITION", "PERM_FIELD_HOME_REHAB", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/discharge/consultations/**").hasAnyAuthority("PERM_API_DISCHARGE_EDIT", "PERM_FIELD_NUTRITION", "PERM_FIELD_HOME_REHAB", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/system/fee-coefficients/**").hasAnyAuthority("PERM_API_FEE_CONFIG", "ROLE_SYSTEM_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/system/departments/**").hasAnyAuthority("PERM_API_DEPT_MANAGE", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/system/fee-coefficients/**", "/api/system/departments/**").hasAnyAuthority("PERM_API_FEE_CONFIG", "PERM_API_DEPT_MANAGE", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/system/audit-logs/**").hasAnyAuthority("PERM_API_AUDIT_VIEW", "ROLE_SYSTEM_ADMIN")
                         .anyRequest().authenticated())

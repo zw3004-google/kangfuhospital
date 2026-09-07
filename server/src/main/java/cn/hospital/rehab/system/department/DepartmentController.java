@@ -2,17 +2,20 @@ package cn.hospital.rehab.system.department;
 
 import cn.hospital.rehab.common.api.ApiResponse;
 import cn.hospital.rehab.common.api.PageResult;
+import cn.hospital.rehab.common.audit.AuditLogService;
 import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 
 @RestController
 @RequestMapping("/api/system/departments")
 public class DepartmentController {
     private final DepartmentService service;
+    private final AuditLogService audit;
 
-    public DepartmentController(DepartmentService service) {
+    public DepartmentController(DepartmentService service, AuditLogService audit) {
         this.service = service;
+        this.audit = audit;
     }
 
     @GetMapping
@@ -27,6 +30,14 @@ public class DepartmentController {
     @PostMapping
     ApiResponse<Department> create(@Valid @RequestBody CreateDepartmentRequest request) {
         return ApiResponse.ok(service.create(request));
+    }
+
+    @PutMapping("/{id}")
+    ApiResponse<Department> update(Authentication auth, @PathVariable long id, @Valid @RequestBody UpdateDepartmentRequest request) {
+        var before = service.get(id);
+        var updated = service.update(id, request);
+        audit.record(auth, "SYSTEM", "DEPARTMENT", String.valueOf(id), "UPDATE", before, updated);
+        return ApiResponse.ok(updated);
     }
 
     @PostMapping("/batch/enable")

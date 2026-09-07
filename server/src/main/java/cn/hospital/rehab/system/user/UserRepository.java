@@ -53,6 +53,10 @@ public class UserRepository {
         return jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_user WHERE employee_no=:employeeNo)")
                 .param("employeeNo", employeeNo).query(Boolean.class).single();
     }
+    public boolean employeeNoExistsExcept(String employeeNo, long userId) {
+        return jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_user WHERE employee_no=:employeeNo AND id<>:id)")
+                .param("employeeNo", employeeNo).param("id", userId).query(Boolean.class).single();
+    }
     public long idByLoginName(String loginName) { return jdbc.sql("SELECT id FROM sys_user WHERE login_name=:name").param("name",loginName).query(Long.class).single(); }
 
     public Optional<UserSummary> findById(long id) {
@@ -74,6 +78,12 @@ public class UserRepository {
     public UserSummary setEnabled(long id, boolean enabled) {
         jdbc.sql("UPDATE sys_user SET enabled=:enabled, updated_at=CURRENT_TIMESTAMP WHERE id=:id")
                 .param("enabled", enabled).param("id", id).update();
+        return findById(id).orElseThrow();
+    }
+
+    public UserSummary update(long id, String displayName, String employeeNo, long departmentId) {
+        jdbc.sql("UPDATE sys_user SET display_name=:displayName, employee_no=:employeeNo, department_id=:departmentId, updated_at=CURRENT_TIMESTAMP WHERE id=:id")
+                .param("id", id).param("displayName", displayName).param("employeeNo", employeeNo).param("departmentId", departmentId).update();
         return findById(id).orElseThrow();
     }
 

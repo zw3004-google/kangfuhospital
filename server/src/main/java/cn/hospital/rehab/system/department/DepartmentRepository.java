@@ -67,6 +67,11 @@ public class DepartmentRepository {
                 .param("code", code).query(Boolean.class).single();
     }
 
+    public Department updateName(long id, String departmentName) {
+        return jdbc.sql("UPDATE sys_department SET department_name=:departmentName, updated_at=CURRENT_TIMESTAMP WHERE id=:id RETURNING *")
+                .param("id", id).param("departmentName", departmentName).query(DepartmentRepository::map).single();
+    }
+
     public void delete(long id) {
         jdbc.sql("DELETE FROM sys_department WHERE id=:id").param("id", id).update();
     }

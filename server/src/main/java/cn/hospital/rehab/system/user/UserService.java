@@ -46,6 +46,18 @@ public class UserService {
                 employeeNo, request.wecomUserId().trim(), request.departmentId());
     }
 
+    public UserSummary get(long id) { return requireUser(id); }
+
+    @Transactional
+    public UserSummary update(long id, UpdateUserRequest request) {
+        requireUser(id);
+        var department = departments.findById(request.departmentId())
+                .orElseThrow(() -> new IllegalArgumentException("所属科室不存在"));
+        if (!department.enabled()) throw new IllegalArgumentException("不能为用户分配已停用科室");
+        String employeeNo = request.employeeNo().trim();
+        if (users.employeeNoExistsExcept(employeeNo, id)) throw new IllegalArgumentException("工号已存在：" + employeeNo);
+        return users.update(id, request.displayName().trim(), employeeNo, request.departmentId());
+    }
     @Transactional
     public UserSummary setEnabled(long id, boolean enabled) {
         UserSummary user = requireUser(id);
