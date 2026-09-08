@@ -432,6 +432,26 @@ class ApplicationPostgresIntegrationTest {
     }
 
     @Test
+    @Transactional
+    void dischargeImportImmediatelyCalculatesAbnormalCodes() {
+        DischargeImportRow missingPlan = dischargeRow("IMPORT-ABNORMAL-MISSING");
+        missingPlan.actualDischargeAt = "2099-01-10 10:00:00";
+        DischargeImportRow dateMismatch = dischargeRow("IMPORT-ABNORMAL-MISMATCH");
+        dateMismatch.plannedDischargeAt = "2099-01-09 10:00:00";
+        dateMismatch.actualDischargeAt = "2099-01-10 10:00:00";
+        DischargeImportRow normal = dischargeRow("IMPORT-ABNORMAL-NORMAL");
+        normal.plannedDischargeAt = "2099-01-10 09:00:00";
+        normal.actualDischargeAt = "2099-01-10 10:00:00";
+
+        dischargeImportService.importFile(workbook("discharge-abnormal-codes.xlsx", DischargeImportRow.class,
+                List.of(missingPlan, dateMismatch, normal)));
+
+        assertThat(abnormalCodes("IMPORT-ABNORMAL-MISSING")).isEqualTo("MISSING_PLAN");
+        assertThat(abnormalCodes("IMPORT-ABNORMAL-MISMATCH")).isEqualTo("DATE_MISMATCH");
+        assertThat(abnormalCodes("IMPORT-ABNORMAL-NORMAL")).isEmpty();
+    }
+
+    @Test
     void auditEndpointUsesSecuredSystemPath() throws Exception {
         mvc.perform(get("/api/system/audit-logs").with(sessionAuth("admin","kfyy123!")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
@@ -731,6 +751,8 @@ class ApplicationPostgresIntegrationTest {
         }
         return new MockMultipartFile("file",name,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",out.toByteArray());
     }
+
+    private String abnormalCodes(String inpatientNo) { return jdbc.sql("SELECT r.abnormal_codes FROM discharge_record r JOIN patient_encounter e ON e.id=r.encounter_id WHERE e.inpatient_no=:inpatientNo").param("inpatientNo", inpatientNo).query(String.class).single(); }
     private long countEncounter(String no){return jdbc.sql("SELECT COUNT(*) FROM patient_encounter WHERE inpatient_no=:no").param("no",no).query(Long.class).single();}
 
     private long id(String table, String inpatientNo) {

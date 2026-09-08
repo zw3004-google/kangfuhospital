@@ -25,7 +25,7 @@ $integrationReport = Join-Path $projectRoot 'server\target\surefire-reports\TEST
 if ([int]$integration.testsuite.tests -lt 12) { throw 'Stage 6 PostgreSQL integration coverage is incomplete' }
 
 Assert-Contains (Join-Path $projectRoot 'server\src\main\java\cn\hospital\rehab\arrears\importer\ArrearsImportService.java') 'rows.size() > 1000' 'Arrears 1000-row import limit is missing'
-Assert-Contains (Join-Path $projectRoot 'server\src\main\java\cn\hospital\rehab\discharge\importer\DischargeImportService.java') 'rows.size() > 1000' 'Discharge 1000-row import limit is missing'
+Assert-Contains (Join-Path $projectRoot 'server\src\main\java\cn\hospital\rehab\discharge\importer\DischargeImportService.java') 'rows.size() > 5000' 'Discharge 5000-row import limit is missing'
 
 $phase6Document = Join-Path $projectRoot 'docs\phase6\README.md'
 if (-not (Test-Path -LiteralPath $phase6Document)) { throw 'Stage 6 execution record is missing' }

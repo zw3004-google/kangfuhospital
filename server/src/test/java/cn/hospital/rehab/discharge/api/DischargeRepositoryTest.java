@@ -43,6 +43,7 @@ class DischargeRepositoryTest {
         when(row.getString("department_name")).thenReturn("康复一科");
         when(row.getString("primary_diagnosis")).thenReturn("脑卒中恢复期");
         when(row.getString("doctor_name_source")).thenReturn("测试医生");
+        when(row.getString("doctor_employee_no")).thenReturn("D001");
         when(row.getString("abnormal_codes")).thenReturn("DATE_MISMATCH,LATE_PLAN");
         when(row.getObject("admitted_at", OffsetDateTime.class)).thenReturn(admitted);
         when(row.getObject("planned_discharge_at", OffsetDateTime.class)).thenReturn(planned);
@@ -55,6 +56,7 @@ class DischargeRepositoryTest {
 
         assertThat(result.gender()).isEqualTo("女");
         assertThat(result.primaryDiagnosis()).isEqualTo("脑卒中恢复期");
+        assertThat(result.doctorEmployeeNo()).isEqualTo("D001");
         assertThat(result.admittedAt()).isEqualTo(admitted);
         assertThat(result.latestOutpatientAppointmentAt()).isEqualTo(outpatient);
         assertThat(result.latestNutritionAppointmentAt()).isEqualTo(nutrition);

@@ -9,7 +9,7 @@ import { http, type ApiResponse } from '../api/http'
 
 use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
-interface TrendPoint {
+interface CumulativeTrendPoint {
   day: string
   dischargeCount: number
   unplannedCount: number
@@ -35,7 +35,7 @@ interface Metrics {
   nutritionRate: number | null
   homeRehabRate: number | null
   outpatientRate: number | null
-  trend: TrendPoint[]
+  trend: CumulativeTrendPoint[]
 }
 
 type DetailCategory = 'BOARD' | 'FOLLOW_UP' | 'NUTRITION' | 'HOME_REHAB' | 'OUTPATIENT' | 'ABNORMAL'

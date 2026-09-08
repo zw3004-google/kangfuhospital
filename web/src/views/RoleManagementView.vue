@@ -17,6 +17,16 @@ const deptSelected = ref<number[]>([])
 const originalSelected = ref<number[]>([])
 const originalDeptSelected = ref<number[]>([])
 const saving = ref(false)
+const menuKeyword = ref('')
+const apiKeyword = ref('')
+const departmentKeyword = ref('')
+const groupPermissions = (type: 'MENU' | 'OTHER') => permissions.value.filter(item => (type === 'MENU' ? item.permissionType === 'MENU' : item.permissionType !== 'MENU'))
+const filteredPermissions = (type: 'MENU' | 'OTHER', keyword: string) => groupPermissions(type).filter(item => `${item.permissionName} ${item.permissionCode}`.toLowerCase().includes(keyword.trim().toLowerCase()))
+const filteredDepartments = computed(() => departments.value.filter(item => item.enabled && item.departmentName.toLowerCase().includes(departmentKeyword.value.trim().toLowerCase())))
+const toggleGroup = (ids: number[], selectedIds: number[]) => { const set = new Set(selectedIds); const all = ids.length > 0 && ids.every(id => set.has(id)); ids.forEach(id => all ? set.delete(id) : set.add(id)); return [...set] }
+const toggleMenu = () => { if (!isSystemAdmin.value) selected.value = toggleGroup(groupPermissions('MENU').map(item => item.id), selected.value) }
+const toggleApi = () => { if (!isSystemAdmin.value) selected.value = toggleGroup(groupPermissions('OTHER').map(item => item.id), selected.value) }
+const toggleDepartments = () => { deptSelected.value = toggleGroup(departments.value.filter(item => item.enabled).map(item => item.id), deptSelected.value) }
 
 const allPermissionIds = computed(() => permissions.value.map(permission => permission.id))
 const selectedRole = computed(() => roles.value.find(role => role.id === roleId.value))
@@ -76,22 +86,25 @@ onMounted(load)
     <el-divider />
     <el-form label-position="top" class="role-permission-form">
       <el-form-item label="菜单权限">
+        <div class="permission-group-toolbar"><el-input v-model="menuKeyword" clearable placeholder="筛选菜单权限"/><el-button :disabled="isSystemAdmin" @click="toggleMenu">全选/取消全选</el-button></div>
         <el-checkbox-group v-model="selected" class="permission-check-grid">
-          <el-checkbox v-for="permission in permissions.filter(item => item.permissionType === 'MENU')" :key="permission.id" :value="permission.id" :disabled="isSystemAdmin">
+          <el-checkbox v-for="permission in filteredPermissions('MENU', menuKeyword)" :key="permission.id" :value="permission.id" :disabled="isSystemAdmin">
             {{ permission.permissionName }}
           </el-checkbox>
         </el-checkbox-group>
       </el-form-item>
       <el-form-item label="接口及字段权限">
+        <div class="permission-group-toolbar"><el-input v-model="apiKeyword" clearable placeholder="筛选接口及字段权限"/><el-button :disabled="isSystemAdmin" @click="toggleApi">全选/取消全选</el-button></div>
         <el-checkbox-group v-model="selected" class="permission-check-grid">
-          <el-checkbox v-for="permission in permissions.filter(item => item.permissionType !== 'MENU')" :key="permission.id" :value="permission.id" :disabled="isSystemAdmin">
+          <el-checkbox v-for="permission in filteredPermissions('OTHER', apiKeyword)" :key="permission.id" :value="permission.id" :disabled="isSystemAdmin">
             {{ permission.permissionName }}
           </el-checkbox>
         </el-checkbox-group>
       </el-form-item>
       <el-form-item label="可访问科室">
+        <div class="permission-group-toolbar"><el-input v-model="departmentKeyword" clearable placeholder="筛选可访问科室"/><el-button @click="toggleDepartments">全选/取消全选</el-button></div>
         <el-checkbox-group v-model="deptSelected" class="permission-check-grid department-check-grid">
-          <el-checkbox v-for="department in departments.filter(item => item.enabled)" :key="department.id" :value="department.id">
+          <el-checkbox v-for="department in filteredDepartments" :key="department.id" :value="department.id">
             {{ department.departmentName }}
           </el-checkbox>
         </el-checkbox-group>
