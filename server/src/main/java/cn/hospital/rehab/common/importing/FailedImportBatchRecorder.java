@@ -38,4 +38,29 @@ public class FailedImportBatchRecorder {
                 .param("code",error.errorCode()).param("message",error.message()).update();
         return batchNo;
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String recordApi(String businessType, String transactionCode, String triggerType, Long startedBy,
+                            int total, List<ImportError> errors) {
+        String prefix = "ARREARS".equals(businessType) ? "ARR" : "DIS";
+        String batchNo = prefix + "-API-FAILED-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + "-" + UUID.randomUUID().toString().substring(0, 6);
+        long id = jdbc.sql("""
+                INSERT INTO import_batch(batch_no,business_type,source_type,status,total_count,failure_count,
+                error_message,summary_status,finished_at,transaction_code,trigger_type,started_by)
+                VALUES (:batchNo,:businessType,'API','FAILED',:total,:failures,:message,'FAILED',
+                CURRENT_TIMESTAMP,:transactionCode,:triggerType,:startedBy) RETURNING id
+                """).param("batchNo",batchNo).param("businessType",businessType).param("total",total)
+                .param("failures",errors.size()).param("message","HIS同步校验失败，共 "+errors.size()+" 项错误")
+                .param("transactionCode",transactionCode).param("triggerType",triggerType).param("startedBy",startedBy)
+                .query(Long.class).single();
+        for (ImportError error : errors) jdbc.sql("""
+                INSERT INTO import_batch_error(import_batch_id,row_number,inpatient_no,admission_times,field_name,
+                original_value,error_code,error_message)
+                VALUES (:batch,:row,:no,:times,:field,:value,:code,:message)
+                """).param("batch",id).param("row",error.rowNumber()).param("no",error.inpatientNo())
+                .param("times",error.admissionTimes()).param("field",error.fieldName()).param("value",error.originalValue())
+                .param("code",error.errorCode()).param("message",error.message()).update();
+        return batchNo;
+    }
 }

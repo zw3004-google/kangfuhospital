@@ -55,3 +55,13 @@ wecom:
   agent-id: ${WECOM_AGENT_ID:1000007}
   secret: ${WECOM_SECRET:}
   api-base: ${WECOM_API_BASE:https://qyapi.weixin.qq.com}
+
+his:
+  gateway-url: ${HIS_GATEWAY_URL:}
+  organization-code: ${HIS_ORGANIZATION_CODE:}
+  application-id: ${HIS_APPLICATION_ID:}
+  license-id: ${HIS_LICENSE_ID:}
+  connect-timeout: ${HIS_CONNECT_TIMEOUT:5s}
+  read-timeout: ${HIS_READ_TIMEOUT:30s}
+  page-size: ${HIS_PAGE_SIZE:200}
+  max-pages: ${HIS_MAX_PAGES:1000}

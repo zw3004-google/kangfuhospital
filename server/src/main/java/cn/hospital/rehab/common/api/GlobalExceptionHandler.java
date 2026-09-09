@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException;
 import cn.hospital.rehab.common.importing.ImportError;
 import cn.hospital.rehab.common.importing.ImportValidationException;
 import cn.hospital.rehab.common.importing.ImportFailure;
+import cn.hospital.rehab.integration.his.HisSyncException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,6 +29,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ImportValidationException.class)
     public ApiResponse<ImportFailure> handleImportValidation(ImportValidationException exception) {
         return ApiResponse.error(exception.getMessage(), new ImportFailure(exception.getBatchNo(), exception.getErrors()));
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(HisSyncException.class)
+    public ApiResponse<ImportFailure> handleHisSync(HisSyncException exception) {
+        return ApiResponse.error(exception.getMessage(),new ImportFailure(exception.getBatchNo(),List.of()));
     }
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)

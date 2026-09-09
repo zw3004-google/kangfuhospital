@@ -348,6 +348,28 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     @Transactional
+    void dischargeBoardIncludesFilledPlannedTimeAfterActualDischarge() throws Exception {
+        jdbc.sql("""
+                UPDATE discharge_record d
+                   SET planned_discharge_at=(CURRENT_DATE + 1) + TIME '10:00',
+                       actual_discharge_at=CURRENT_DATE + TIME '09:00'
+                  FROM patient_encounter e
+                 WHERE e.id=d.encounter_id AND e.inpatient_no='TEST-0001'
+                """).update();
+
+        mvc.perform(get("/api/discharge/records")
+                        .param("category", "BOARD")
+                        .param("keyword", "TEST-0001")
+                        .with(sessionAuth("admin", "kfyy123!")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].inpatientNo").value("TEST-0001"))
+                .andExpect(jsonPath("$.data.items[0].plannedDischargeAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.items[0].actualDischargeAt").isNotEmpty());
+    }
+
+    @Test
+    @Transactional
     void operationsCanPreviewAndTriggerDischargeRemindersWithAuditTrail() throws Exception {
         jdbc.sql("""
                 UPDATE discharge_record d SET planned_discharge_at=NULL, actual_discharge_at=(CURRENT_DATE - 1) + TIME '10:00'

@@ -3,11 +3,11 @@ import ElementPlus from 'element-plus'
 import {afterEach,describe,expect,it,vi} from 'vitest'
 import DischargeManagementView from './DischargeManagementView.vue'
 
-const {getMock,putMock}=vi.hoisted(()=>({getMock:vi.fn(),putMock:vi.fn()}))
-vi.mock('../api/http',()=>({http:{get:getMock,post:vi.fn(),put:putMock,delete:vi.fn()}}))
+const {getMock,postMock,putMock}=vi.hoisted(()=>({getMock:vi.fn(),postMock:vi.fn(),putMock:vi.fn()}))
+vi.mock('../api/http',()=>({http:{get:getMock,post:postMock,put:putMock,delete:vi.fn()}}))
 vi.mock('../auth',()=>({hasPermission:vi.fn(()=>true)}))
 
-const row={id:1,encounterId:101,inpatientNo:'ZY001',admissionTimes:2,patientName:'张三',gender:'男',departmentName:'康复一科',primaryDiagnosis:'脑卒中恢复期',doctorName:'李医生',admittedAt:'2026-09-01T08:00:00+08:00',plannedDischargeAt:'2026-09-05T08:00:00+08:00',actualDischargeAt:'2026-09-04T08:00:00+08:00',latestOutpatientAppointmentAt:'2026-09-10T08:00:00+08:00',latestNutritionAppointmentAt:'2026-09-06T08:00:00+08:00',latestHomeRehabAppointmentAt:'2026-09-07T08:00:00+08:00',latestFollowUpAt:'2026-09-11T08:00:00+08:00',status:'已出院',abnormalCodes:['DATE_MISMATCH','LATE_PLAN'],abnormalReason:'患者临时要求出院',specialPatient:false,followUpRequired:true}
+const row={id:1,encounterId:101,inpatientNo:'ZY001',admissionTimes:2,patientName:'张三',gender:'男',medicalInsuranceType:'城镇职工医保',departmentName:'康复一科',primaryDiagnosis:'脑卒中恢复期',doctorName:'李医生',admittedAt:'2026-09-01T08:00:00+08:00',plannedDischargeAt:'2026-09-05T08:00:00+08:00',actualDischargeAt:'2026-09-04T08:00:00+08:00',latestOutpatientAppointmentAt:'2026-09-10T08:00:00+08:00',latestNutritionAppointmentAt:'2026-09-06T08:00:00+08:00',latestHomeRehabAppointmentAt:'2026-09-07T08:00:00+08:00',latestFollowUpAt:'2026-09-11T08:00:00+08:00',status:'已出院',abnormalCodes:['DATE_MISMATCH','LATE_PLAN'],abnormalReason:'患者临时要求出院',specialPatient:false,followUpRequired:true}
 
 describe('DischargeManagementView',()=>{
   afterEach(()=>vi.useRealTimers())
@@ -25,14 +25,30 @@ describe('DischargeManagementView',()=>{
     expect(getMock).toHaveBeenCalledWith('/discharge/records/summary',expect.anything())
     expect(wrapper.text()).toContain('在院患者10 人')
     expect(wrapper.text()).toContain('共 4 条预约记录')
-    for(const header of ['患者姓名','患者性别','住院号','住院次数','所属科室','入院时间','主诊断','主管医生','预约复诊时间','预计出院时间','实际出院时间','预约营养会诊时间','预约居家康复时间','随访时间','状态','异常原因','操作'])expect(wrapper.text()).toContain(header)
+    for(const header of ['患者姓名','患者性别','医保类型','住院号','住院次数','所属科室','入院时间','主诊断','主管医生','预约复诊时间','预计出院时间','实际出院时间','预约营养会诊时间','预约居家康复时间','随访时间','状态','异常原因','操作'])expect(wrapper.text()).toContain(header)
     expect(wrapper.text()).toContain('预计与实际出院日期不一致；出院前12小时内填报；患者临时要求出院')
     expect(wrapper.text()).toContain('异常')
     expect(wrapper.find('.mobile-filter-toolbar').exists()).toBe(true)
     expect(wrapper.findAll('.discharge-mobile-card')).toHaveLength(1)
     expect(wrapper.find('.discharge-mobile-card').text()).toContain('张三')
+    expect(wrapper.find('.discharge-mobile-card').text()).toContain('男')
+    expect(wrapper.find('.discharge-mobile-card').text()).toContain('脑卒中恢复期')
     expect(wrapper.find('.discharge-mobile-card').text()).toContain('康复一科')
+    expect(wrapper.find('.discharge-mobile-card').text()).toContain('城镇职工医保')
+    expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步患者信息')
     expect(wrapper.find('.discharge-mobile-card').text()).toContain('点击查看患者详情')
+  })
+
+  it('从 H5 快捷入口同步患者信息并展示批次结果',async()=>{
+    getMock.mockImplementation((url:string)=>url==='/discharge/records/filter-options'?Promise.resolve({data:{data:[]}}):url==='/discharge/records/summary'?Promise.resolve({data:{data:{}}}):Promise.resolve({data:{data:{items:[],total:0,page:1,pageSize:50}}}))
+    postMock.mockResolvedValue({data:{data:{batchNo:'HIS-PATIENT-001',total:1,success:1,failure:0,added:1,overwritten:0,skipped:0}}})
+    const wrapper=mount(DischargeManagementView,{global:{plugins:[ElementPlus],directives:{permission:()=>{}}}})
+    await flushPromises()
+    await wrapper.find('.mobile-sync-actions button').trigger('click')
+    await flushPromises()
+    expect(postMock).toHaveBeenCalledWith('/integration/his-sync/PATIENT_INFO/trigger',undefined,{timeout:120_000})
+    expect(wrapper.text()).toContain('患者信息同步完成')
+    expect(wrapper.text()).toContain('HIS-PATIENT-001')
   })
 
   it('提供完整筛选项和规定分页规格',async()=>{
@@ -41,7 +57,7 @@ describe('DischargeManagementView',()=>{
     expect(wrapper.find('input[placeholder="住院号 / 姓名 / 主管医生"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('时间类型（全部）')
     expect(wrapper.findComponent({name:'ElPagination'}).props('pageSizes')).toEqual([20,50,100,200])
-    expect(wrapper.find('input[type="file"]').attributes('accept')).toBe('.xlsx')
+    expect(wrapper.find('input[type="file"]').attributes('accept')).toBe('.xls,.xlsx')
   })
 
   it('使用结构化弹窗加载详情、异常规则和操作历史',async()=>{
@@ -58,6 +74,7 @@ describe('DischargeManagementView',()=>{
     const editButton=wrapper.findAll('button').find(button=>button.text()==='编辑')
     await editButton!.trigger('click');await flushPromises()
     expect(wrapper.text()).toContain('编辑院后管理信息')
+    expect(wrapper.find('.mobile-patient-summary').text()).toContain('城镇职工医保')
     expect(wrapper.text()).toContain('系统判定异常')
     expect(wrapper.text()).toContain('预计与实际出院日期不一致')
     expect(wrapper.text()).toContain('患者已出院，预计出院时间不可修改')

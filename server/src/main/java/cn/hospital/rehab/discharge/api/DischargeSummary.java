@@ -35,6 +35,7 @@ public record DischargeSummary(
         String followUpDay30,
         String followUpDay60,
         String followUpDetailsJson,
+        String medicalInsuranceType,
         OffsetDateTime updatedAt) {
     public DischargeSummary(long id,long encounterId,String inpatientNo,int admissionTimes,String patientName,String gender,
             String departmentName,String primaryDiagnosis,String doctorName,String doctorEmployeeNo,OffsetDateTime admittedAt,OffsetDateTime plannedDischargeAt,
@@ -47,7 +48,7 @@ public record DischargeSummary(
                 plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
                 outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
                 latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,specialReason,followUpRequired,
-                followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null);
+                followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null,null);
     }
 
     public DischargeSummary(long id,long encounterId,String inpatientNo,int admissionTimes,String patientName,String gender,
@@ -61,6 +62,6 @@ public record DischargeSummary(
                 plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
                 outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
                 latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,specialReason,followUpRequired,
-                followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null);
+                followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null,null);
     }
 }

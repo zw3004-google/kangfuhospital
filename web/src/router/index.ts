@@ -27,6 +27,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/system/users', component: view('UserManagementView'), meta: { title: '用户管理', permission: 'PERM_API_USER_MANAGE' } },
   { path: '/system/roles', component: view('RoleManagementView'), meta: { title: '权限管理', permission: 'PERM_API_ROLE_MANAGE' } },
   { path: '/system/audit-logs', component: view('AuditLogView'), meta: { title: '审计日志', permission: 'PERM_API_AUDIT_VIEW' } },
+  { path: '/system/his-sync', component: view('HisSyncConfigView'), meta: { title: 'HIS同步配置', permission: 'PERM_API_HIS_SYNC_CONFIG' } },
 ]
 
 const router = createRouter({

@@ -5,6 +5,7 @@ interface Row{id:number;inpatientNo:string;admissionTimes:number;patientName:str
 interface FilterOptions{departments:{id:number;name:string}[];feeTypes:string[];arrearsTypes:string[]}
 interface Summary{totalPeople:number;inpatientPeople:number;dischargedUnsettledPeople:number;dischargedSettledPeople:number;totalAmount:number;uncollectedPeople:number;legalPeople:number;sourceUpdatedAt:string|null}
 interface HistoryItem{id:number;operatorName:string;operatedAt:string;actionType:string;beforeData:string;afterData:string;changeDescription:string}
+interface SyncResult{batchNo:string;total:number;success:number;failure:number;added:number;overwritten:number;skipped:number}
 const progressOptions=[['NOT_STARTED','未催缴'],['NEGOTIATING','协商中'],['REFUSED','拒绝缴费'],['LEGAL_ACTION','移交法务发起诉讼'],['PAID','已缴费']] as const
 const progressLabel=(value:string)=>progressOptions.find(([code])=>code===value)?.[1]||value
 type TagType='primary'|'success'|'warning'|'info'|'danger'
@@ -14,7 +15,7 @@ const arrearsTypeLabel=(value:string)=>arrearsTypeLabels[value]||value||'—'
 const router=useRouter()
 const mobileFilters=ref(false)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
-const rows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref(''),feeType=ref(''),recoveryProgress=ref(''),inArrears=ref<boolean>(true),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),saving=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
+const rows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref(''),feeType=ref(''),recoveryProgress=ref(''),inArrears=ref<boolean>(true),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),syncing=ref(''),saving=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
 const queryParams=()=>({page:page.value,pageSize:pageSize.value,keyword:keyword.value||undefined,departmentId:departmentId.value,arrearsType:arrearsType.value||undefined,feeType:feeType.value||undefined,recoveryProgress:recoveryProgress.value||undefined,inArrears:inArrears.value})
 const summaryParams=()=>{const {page:_,pageSize:__,...params}=queryParams();return params}
 const load=async()=>{loading.value=true;try{const r=(await http.get<ApiResponse<Page<Row>>>('/arrears/records',{params:queryParams()})).data.data;rows.value=r.items;total.value=r.total}catch(e){ElMessage.error(e instanceof Error?e.message:'加载失败')}finally{loading.value=false}}
@@ -23,6 +24,7 @@ const loadAll=()=>Promise.all([load(),loadSummary()])
 const loadFilterOptions=async()=>{try{filterOptions.value=(await http.get<ApiResponse<FilterOptions>>('/arrears/records/filter-options')).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'筛选项加载失败')}}
 const reset=()=>{keyword.value='';departmentId.value=undefined;arrearsType.value='';feeType.value='';recoveryProgress.value='';inArrears.value=true;page.value=1;loadAll()}
 const upload=async(file:File)=>{if(!/\.xlsx$/i.test(file.name)){ElMessage.error('仅支持 .xlsx 文件');return false}const data=new FormData();data.append('file',file);uploading.value=true;importFeedback.value=null;try{const result=(await http.post<ApiResponse<ImportResult>>('/arrears/import',data)).data.data;importFeedback.value={...result,status:'success',message:'欠费报表导入完成',remainingErrors:0};ElMessage.success('导入成功');page.value=1;await loadAll()}catch(e){importFeedback.value=importFailureFeedback(e,'欠费报表导入失败');ElMessage.error(importFeedback.value.message)}finally{uploading.value=false}return false}
+const syncHis=async(type:'INPATIENT_ARREARS'|'DISCHARGED_ARREARS',label:string)=>{syncing.value=type;importFeedback.value=null;try{const result=(await http.post<ApiResponse<SyncResult>>(`/integration/his-sync/${type}/trigger`,undefined,{timeout:120_000})).data.data;importFeedback.value={...result,status:'success',message:`${label}同步完成`,remainingErrors:0};ElMessage.success(`${label}同步完成`);page.value=1;await loadFilterOptions();await loadAll()}catch(e){importFeedback.value=importFailureFeedback(e,`${label}同步失败`);ElMessage.error(importFeedback.value.message)}finally{syncing.value=''}}
 const openImportRecords=()=>router.push('/arrears/import-batches')
 const loadHistory=async(id:number)=>{historyLoading.value=true;try{historyItems.value=(await http.get<ApiResponse<HistoryItem[]>>(`/arrears/records/${id}/history`)).data.data}catch(e){historyItems.value=[];ElMessage.error(e instanceof Error?e.message:'操作历史加载失败')}finally{historyLoading.value=false}}
 const edit=(row:Row)=>{current.value=row;form.paymentStatus=row.paymentStatus;form.arrearsReason=row.arrearsReason||'';form.recoveryProgress=row.recoveryProgress||'NOT_STARTED';const draft=loadSessionDraft<typeof form>(`arrears:${row.id}`);if(draft)Object.assign(form,draft);historyItems.value=[];dialog.value=true;loadHistory(row.id)}
@@ -46,6 +48,8 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <p>列表、筛选、统计与导出使用相同数据范围。</p>
 </div>
 <div class="heading-actions">
+<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='INPATIENT_ARREARS'" :disabled="!!syncing" @click="syncHis('INPATIENT_ARREARS','在院欠费')">同步在院欠费</el-button>
+<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='DISCHARGED_ARREARS'" :disabled="!!syncing" @click="syncHis('DISCHARGED_ARREARS','出院欠费')">同步出院欠费</el-button>
 <el-dropdown v-permission="'PERM_API_ARREARS_EXPORT'" @command="exportData">
 <el-button plain>导出<el-icon class="el-icon--right"><ArrowDown/></el-icon></el-button>
 <template #dropdown><el-dropdown-menu><el-dropdown-item command="xlsx">导出 Excel</el-dropdown-item><el-dropdown-item command="csv">导出 CSV</el-dropdown-item></el-dropdown-menu></template>
@@ -61,6 +65,10 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <div v-if="importFeedback.status==='error'&&importFeedback.remainingErrors">另有 {{importFeedback.remainingErrors}} 项校验错误，请查看导入记录逐项处理。</div>
 <el-button v-if="importFeedback.status==='error'&&importFeedback.batchNo" link type="primary" @click="openImportRecords">查看导入记录</el-button>
 </el-alert>
+<div class="mobile-only mobile-sync-actions" aria-label="HIS 欠费同步">
+<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='INPATIENT_ARREARS'" :disabled="!!syncing" @click="syncHis('INPATIENT_ARREARS','在院欠费')">同步在院欠费</el-button>
+<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='DISCHARGED_ARREARS'" :disabled="!!syncing" @click="syncHis('DISCHARGED_ARREARS','出院欠费')">同步出院欠费</el-button>
+</div>
 <div v-loading="summaryLoading" class="stat-grid">
 <div>
 <span>欠费患者数</span>

@@ -3,8 +3,8 @@ import ElementPlus from 'element-plus'
 import { describe, expect, it, vi } from 'vitest'
 import ArrearsDetailsView from './ArrearsDetailsView.vue'
 
-const { getMock } = vi.hoisted(() => ({ getMock: vi.fn() }))
-vi.mock('../api/http', () => ({ http: { get: getMock, post: vi.fn(), put: vi.fn() }, ApiRequestError: class extends Error {} }))
+const { getMock, postMock } = vi.hoisted(() => ({ getMock: vi.fn(), postMock: vi.fn() }))
+vi.mock('../api/http', () => ({ http: { get: getMock, post: postMock, put: vi.fn() }, ApiRequestError: class extends Error {} }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 describe('ArrearsDetailsView 主管医生工号', () => {
@@ -25,6 +25,23 @@ describe('ArrearsDetailsView 主管医生工号', () => {
     expect(wrapper.findAll('.mobile-record-card')).toHaveLength(1)
     expect(wrapper.find('.arrears-mobile-card').text()).toContain('600.00 元')
     expect(wrapper.find('.arrears-mobile-card').text()).toContain('康复一病区')
+    expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步在院欠费')
+    expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步出院欠费')
+  })
 
+  it('从 H5 快捷入口触发在院欠费同步并展示批次结果', async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === '/arrears/records/filter-options') return Promise.resolve({ data: { data: { departments: [], feeTypes: [], arrearsTypes: [] } } })
+      if (url === '/arrears/records/summary') return Promise.resolve({ data: { data: {} } })
+      return Promise.resolve({ data: { data: { items: [], total: 0, page: 1, pageSize: 50 } } })
+    })
+    postMock.mockResolvedValue({ data: { data: { batchNo: 'HIS-001', total: 2, success: 2, failure: 0, added: 1, overwritten: 1, skipped: 0 } } })
+    const wrapper = mount(ArrearsDetailsView, { global: { plugins: [ElementPlus], directives: { permission: () => {} } } })
+    await flushPromises()
+    await wrapper.find('.mobile-sync-actions button').trigger('click')
+    await flushPromises()
+    expect(postMock).toHaveBeenCalledWith('/integration/his-sync/INPATIENT_ARREARS/trigger', undefined, { timeout: 120_000 })
+    expect(wrapper.text()).toContain('在院欠费同步完成')
+    expect(wrapper.text()).toContain('HIS-001')
   })
 })

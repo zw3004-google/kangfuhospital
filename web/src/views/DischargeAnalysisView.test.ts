@@ -148,6 +148,20 @@ describe('DischargeAnalysisView 阶段1', () => {
     expect(wrapper.findComponent({ name: 'ElPagination' }).props('pageSizes')).toEqual([20, 50, 100, 200])
   })
 
+  it('预出院看板展示已填报预计时间且已有实际出院时间的记录', async () => {
+    const item = { id: 2, patientName: '已填报患者', gender: '女', inpatientNo: 'ZY-BOARD-001', admissionTimes: 1, departmentName: '康复科', doctorName: '王医生', plannedDischargeAt: '2026-09-05T10:00:00+08:00', actualDischargeAt: '2026-09-05T09:00:00+08:00', primaryDiagnosis: '脑卒中', abnormalCodes: [] }
+    getMock.mockImplementation((url: string) => {
+      if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })
+      if (url.endsWith('filter-options')) return Promise.resolve({ data: { data: [] } })
+      return Promise.resolve({ data: { data: { items: [item], total: 1 } } })
+    })
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('已填报患者')
+    expect(wrapper.text()).toContain('ZY-BOARD-001')
+    expect(wrapper.text()).toContain('2026')
+  })
+
   it('将科室、时间、日期和关键词同时用于查询与导出', async () => {
     const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
     const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})

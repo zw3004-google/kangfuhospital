@@ -27,11 +27,12 @@ const menuPermissions: Record<string, string> = {
   '/discharge/import-batches': 'PERM_API_DISCHARGE_IMPORT', '/discharge/push-records': 'PERM_API_PUSH_RECORD_VIEW',
   '/system/fee-coefficients': 'PERM_API_FEE_CONFIG', '/system/users': 'PERM_API_USER_MANAGE',
   '/system/roles': 'PERM_API_ROLE_MANAGE', '/system/audit-logs': 'PERM_API_AUDIT_VIEW',
+  '/system/his-sync': 'PERM_API_HIS_SYNC_CONFIG',
 }
 const menuGroups = [
   { title: '欠费管理', items: [['/arrears/details', '欠费明细'], ['/arrears/report', '通报报表'], ['/arrears/import-batches', '导入记录'], ['/arrears/push-records', '推送记录']] },
   { title: '预出院管理', items: [['/discharge/management', '预计出院管理'], ['/discharge/analysis', '统计分析'], ['/discharge/import-batches', '导入记录'], ['/discharge/push-records', '推送记录']] },
-  { title: '系统管理', items: [['/system/fee-coefficients', '费别系数配置'], ['/system/users', '用户管理'], ['/system/roles', '权限管理'], ['/system/audit-logs', '审计日志']] },
+  { title: '系统管理', items: [['/system/fee-coefficients', '费别系数配置'], ['/system/his-sync', 'HIS同步配置'], ['/system/users', '用户管理'], ['/system/roles', '权限管理'], ['/system/audit-logs', '审计日志']] },
 ] as const
 const canSee = (path: string) => { void permissionReady.value; const permission = menuPermissions[path]; return !permission || hasPermission(permission) }
 const visibleGroups = computed(() => menuGroups.map(group => ({ ...group, items: group.items.filter(item => canSee(item[0])) })).filter(group => group.items.length))

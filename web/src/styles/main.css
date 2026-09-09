@@ -259,6 +259,9 @@ a { color: inherit; text-decoration: none; }
   .desktop-only { display: none !important; }
   .mobile-only { display: block; }
   .arrears-details-page .heading-actions, .discharge-page .heading-actions { display: none; }
+  .mobile-sync-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 14px 0; }
+  .mobile-sync-actions .el-button { width: 100%; min-height: 44px; margin: 0; }
+  .discharge-page .mobile-sync-actions { grid-template-columns: 1fr; }
   .stat-grid, .discharge-stat-grid { display: flex; gap: 10px; margin: 16px -12px; padding: 0 12px 4px; overflow-x: auto; scroll-snap-type: x proximity; }
   .stat-grid > div, .discharge-stat-grid > div { min-width: 148px; flex: 0 0 148px; padding: 14px; scroll-snap-align: start; }
   .stat-grid strong { font-size: 19px; }
@@ -315,6 +318,23 @@ a { color: inherit; text-decoration: none; }
   .discharge-responsibility-section > header { align-items: flex-start; flex-wrap: wrap; }
   .discharge-responsibility-section > header span { flex-basis: 100%; }
   .dialog-form .el-form-item { margin-bottom: 18px; }
+  .his-sync-mobile-list, .import-batch-mobile-list, .import-error-mobile-list { min-height: 120px; margin-top: 16px; }
+  .his-sync-mobile-card, .import-batch-mobile-card, .import-error-mobile-card { margin-bottom: 12px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 13px; background: #fff; box-shadow: 0 3px 10px rgba(42,60,86,.04); }
+  .his-sync-mobile-card > header, .import-batch-mobile-card > header, .import-error-mobile-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px; border-bottom: 1px solid #edf0f4; }
+  .his-sync-mobile-card > header strong, .import-batch-mobile-card > header strong, .import-error-mobile-card > header strong { min-width: 0; overflow-wrap: anywhere; color: #26364c; font-size: 15px; }
+  .his-sync-mobile-controls { display: grid; gap: 12px; padding: 14px; background: #f7f9fc; }
+  .his-sync-mobile-controls label { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #526177; font-size: 13px; }
+  .his-sync-mobile-controls label > span { flex: 0 0 auto; }
+  .his-sync-mobile-controls .el-date-editor { width: 155px; max-width: 65%; }
+  .his-sync-mobile-controls .el-input__wrapper, .his-sync-mobile-controls .el-switch { min-height: 44px; }
+  .his-sync-mobile-card dl, .import-batch-mobile-card dl, .import-error-mobile-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px; }
+  .his-sync-mobile-card dl > div, .import-batch-mobile-card dl > div, .import-error-mobile-card dl > div { min-width: 0; }
+  .his-sync-mobile-card dl .wide, .import-batch-mobile-card dl .wide, .import-error-mobile-card dl .wide { grid-column: 1 / -1; }
+  .his-sync-mobile-card dt, .import-batch-mobile-card dt, .import-error-mobile-card dt { color: #8793a4; font-size: 11px; }
+  .his-sync-mobile-card dd, .import-batch-mobile-card dd, .import-error-mobile-card dd { margin: 4px 0 0; overflow-wrap: anywhere; color: #34445a; font-size: 13px; line-height: 1.5; }
+  .his-sync-mobile-card .error dd, .import-batch-mobile-card .error dd, .import-error-mobile-card .error dd { color: #d9363e; }
+  .his-sync-mobile-card > footer, .import-batch-mobile-card > footer { display: flex; justify-content: flex-end; padding: 8px 12px; border-top: 1px solid #edf0f4; }
+  .his-sync-mobile-card > footer .el-button, .import-batch-mobile-card > footer .el-button { min-height: 44px; margin: 0; }
 }
 /* H5 H3: mobile analysis, read-only push trace and touch-friendly role forms */
 @media (max-width: 767px) {

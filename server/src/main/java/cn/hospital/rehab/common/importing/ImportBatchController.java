@@ -19,10 +19,11 @@ public class ImportBatchController {
     ApiResponse<List<Batch>> list(@RequestParam(required=false) String businessType){
         String type=businessType==null?"":businessType.trim().toUpperCase();
         return ApiResponse.ok(jdbc.sql("""
-                SELECT batch_no,business_type,original_filename,status,total_count,success_count,failure_count,
+                SELECT batch_no,business_type,source_type,transaction_code,trigger_type,original_filename,status,total_count,success_count,failure_count,
                 added_count,overwritten_count,skipped_count,summary_status,started_at,finished_at,error_message
                 FROM import_batch WHERE (:type='' OR business_type=:type) ORDER BY started_at DESC,id DESC LIMIT 200
                 """).param("type",type).query((r,n)->new Batch(r.getString("batch_no"),r.getString("business_type"),
+                r.getString("source_type"),r.getString("transaction_code"),r.getString("trigger_type"),
                 r.getString("original_filename"),r.getString("status"),r.getInt("total_count"),r.getInt("success_count"),
                 r.getInt("failure_count"),r.getInt("added_count"),r.getInt("overwritten_count"),r.getInt("skipped_count"),
                 r.getString("summary_status"),r.getObject("started_at",OffsetDateTime.class),r.getObject("finished_at",OffsetDateTime.class),
@@ -40,7 +41,7 @@ public class ImportBatchController {
                 r.getObject("admission_times",Integer.class),r.getString("field_name"),r.getString("original_value"),
                 r.getString("error_code"),r.getString("error_message"))).list());
     }
-    public record Batch(String batchNo,String businessType,String filename,String status,int total,int success,int failure,
+    public record Batch(String batchNo,String businessType,String sourceType,String transactionCode,String triggerType,String filename,String status,int total,int success,int failure,
                         int added,int overwritten,int skipped,String summaryStatus,OffsetDateTime startedAt,
                         OffsetDateTime finishedAt,String errorMessage){}
 }

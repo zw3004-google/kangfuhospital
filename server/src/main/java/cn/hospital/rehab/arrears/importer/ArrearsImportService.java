@@ -74,6 +74,45 @@ public class ArrearsImportService {
         return new ArrearsImportResult(batchNo, rows.size(), rows.size(), 0, added, overwritten, 0, matched, unmatched, ambiguous);
     }
 
+    @Transactional
+    public ArrearsImportResult importApiRows(List<ArrearsImportRow> rows, String transactionCode,
+                                              String triggerType, Long startedBy) {
+        if (rows.isEmpty()) throw new IllegalArgumentException("HIS接口未返回数据");
+        try { validateRows(rows); }
+        catch (ImportValidationException exception) {
+            String failedBatchNo = failedBatches.recordApi("ARREARS", transactionCode, triggerType, startedBy,
+                    rows.size(), exception.getErrors());
+            throw new ImportValidationException(failedBatchNo, exception.getErrors());
+        }
+        jdbc.sql("SELECT pg_advisory_xact_lock(hashtext('IMPORT_ARREARS'))").query((rs, rowNum) -> true).single();
+        String batchNo = "ARR-API-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + "-" + UUID.randomUUID().toString().substring(0, 6);
+        long batchId = jdbc.sql("""
+                INSERT INTO import_batch(batch_no,business_type,source_type,status,total_count,transaction_code,trigger_type,started_by)
+                VALUES (:batchNo,'ARREARS','API','PROCESSING',:total,:transactionCode,:triggerType,:startedBy) RETURNING id
+                """).param("batchNo", batchNo).param("total", rows.size()).param("transactionCode", transactionCode)
+                .param("triggerType", triggerType).param("startedBy", startedBy).query(Long.class).single();
+        int matched = 0, unmatched = 0, ambiguous = 0, added = 0, overwritten = 0;
+        for (ArrearsImportRow row : rows) {
+            DoctorMatch doctor = matchDoctor(row.doctorEmployeeNo);
+            if (doctor.matched()) matched++; else if (doctor.ambiguous()) ambiguous++; else unmatched++;
+            boolean exists = encounterExists(row);
+            long encounterId = upsertEncounter(row, doctor);
+            upsertArrears(row, encounterId, batchId);
+            if (exists) overwritten++; else added++;
+        }
+        jdbc.sql("""
+                UPDATE import_batch SET status='SUCCESS',success_count=:success,added_count=:added,
+                  overwritten_count=:overwritten,summary_status='READY',doctor_matched_count=:matched,
+                  doctor_unmatched_count=:unmatched,doctor_ambiguous_count=:ambiguous,
+                  finished_at=CURRENT_TIMESTAMP WHERE id=:id
+                """).param("success", rows.size()).param("added", added).param("overwritten", overwritten)
+                .param("matched", matched).param("unmatched", unmatched).param("ambiguous", ambiguous)
+                .param("id", batchId).update();
+        return new ArrearsImportResult(batchNo, rows.size(), rows.size(), 0, added, overwritten, 0,
+                matched, unmatched, ambiguous);
+    }
+
     private boolean encounterExists(ArrearsImportRow row) {
         return jdbc.sql("SELECT EXISTS(SELECT 1 FROM patient_encounter WHERE inpatient_no=:no AND admission_times=:times)")
                 .param("no", row.inpatientNo.trim()).param("times", row.admissionTimes).query(Boolean.class).single();
