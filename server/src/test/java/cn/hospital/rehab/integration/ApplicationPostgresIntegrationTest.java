@@ -100,6 +100,73 @@ class ApplicationPostgresIntegrationTest {
     }
 
     @Test
+    @Transactional
+    void patientApiUpdateWithMissingDoctorNumberPreservesExistingDoctor() {
+        record Existing(int admissionTimes,String wardName,Long doctorUserId,String doctorEmployeeNo){}
+        Existing before=jdbc.sql("""
+                SELECT e.admission_times,d.department_name,e.doctor_user_id,e.doctor_employee_no
+                FROM patient_encounter e JOIN sys_department d ON d.id=e.department_id
+                WHERE e.inpatient_no='TEST-0001'
+                """).query((r,n)->new Existing(r.getInt("admission_times"),r.getString("department_name"),
+                r.getObject("doctor_user_id",Long.class),r.getString("doctor_employee_no"))).single();
+        var row=new DischargeImportRow();
+        row.inpatientNo="TEST-0001";
+        row.admissionTimes=before.admissionTimes();
+        row.patientName="接口更新患者";
+        row.wardName=before.wardName();
+        row.doctorEmployeeNo=null;
+
+        var result=dischargeImportService.importApiRows(List.of(row),"BDKF-ZYHZXX-xcx","MANUAL",null);
+
+        assertThat(result.total()).isEqualTo(1);
+        assertThat(result.overwritten()).isEqualTo(1);
+        Existing after=jdbc.sql("""
+                SELECT e.admission_times,d.department_name,e.doctor_user_id,e.doctor_employee_no
+                FROM patient_encounter e JOIN sys_department d ON d.id=e.department_id
+                WHERE e.inpatient_no='TEST-0001'
+                """).query((r,n)->new Existing(r.getInt("admission_times"),r.getString("department_name"),
+                r.getObject("doctor_user_id",Long.class),r.getString("doctor_employee_no"))).single();
+        assertThat(after.doctorUserId()).isEqualTo(before.doctorUserId());
+        assertThat(after.doctorEmployeeNo()).isEqualTo(before.doctorEmployeeNo());
+        assertThat(jdbc.sql("SELECT patient_name FROM patient_encounter WHERE inpatient_no='TEST-0001'")
+                .query(String.class).single()).isEqualTo("接口更新患者");
+    }
+
+    @Test
+    @Transactional
+    void inpatientHisArrearsUsesInterfaceAmountWithoutFeeCoefficient() {
+        String ward=jdbc.sql("SELECT department_name FROM sys_department WHERE department_code='TEST-A'")
+                .query(String.class).single();
+        var row=new ArrearsImportRow();
+        row.inpatientNo="HIS-DIRECT-AMOUNT-001";
+        row.admissionTimes=1;
+        row.patientName="接口欠费患者";
+        row.wardName=ward;
+        row.feeType="未配置系数的接口费别";
+        row.arrearsType="INPATIENT";
+        row.totalCost="2000";
+        row.prepaidAmount="100";
+        row.medicalInsurancePaid="0";
+        row.personalAccountPaid="0";
+        row.originalRequiredDeposit="999";
+        row.interfaceArrearsAmount="-123.45";
+
+        var result=arrearsImportService.importApiRows(List.of(row),"BJKF_ZYCX","MANUAL",null);
+
+        assertThat(result.added()).isEqualTo(1);
+        record Imported(java.math.BigDecimal amount,boolean inArrears,Long coefficientVersionId){}
+        Imported imported=jdbc.sql("""
+                SELECT a.arrears_amount,a.in_arrears,a.coefficient_version_id
+                FROM arrears_record a JOIN patient_encounter e ON e.id=a.encounter_id
+                WHERE e.inpatient_no='HIS-DIRECT-AMOUNT-001' AND e.admission_times=1
+                """).query((r,n)->new Imported(r.getBigDecimal("arrears_amount"),r.getBoolean("in_arrears"),
+                r.getObject("coefficient_version_id",Long.class))).single();
+        assertThat(imported.amount()).isEqualByComparingTo("-123.45");
+        assertThat(imported.inArrears()).isTrue();
+        assertThat(imported.coefficientVersionId()).isNull();
+    }
+
+    @Test
     void systemAdministratorAutomaticallyHasEveryEnabledPermission() throws Exception {
         mvc.perform(get("/api/system/me").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())

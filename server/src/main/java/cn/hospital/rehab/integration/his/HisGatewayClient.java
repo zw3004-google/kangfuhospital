@@ -22,6 +22,7 @@ import java.util.UUID;
 @Component
 public class HisGatewayClient {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final List<String> SUCCESS_CODES = List.of("0", "00", "0000", "100", "SUCCESS", "success");
     private final HisProperties properties;
     private final ObjectMapper mapper;
 
@@ -32,16 +33,7 @@ public class HisGatewayClient {
 
     public Page fetch(HisSyncType type, int page) {
         properties.validate();
-        ObjectNode body = mapper.createObjectNode();
-        body.put("TransactionCode", type.transactionCode());
-        body.put("MessageId", UUID.randomUUID().toString());
-        body.put("RequestTime", LocalDateTime.now().format(TIME));
-        body.put("OrgCode", properties.getOrganizationCode());
-        body.put("AppId", properties.getApplicationId());
-        body.put("LicId", properties.getLicenseId());
-        ObjectNode data = body.putObject("Data");
-        data.put("page", page);
-        data.put("size", properties.getPageSize());
+        ObjectNode body = request(type, page);
         try {
             HttpClient client = HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build();
             HttpRequest request = HttpRequest.newBuilder(URI.create(properties.getGatewayUrl()))
@@ -60,13 +52,41 @@ public class HisGatewayClient {
         }
     }
 
+    ObjectNode request(HisSyncType type, int page) {
+        ObjectNode root = mapper.createObjectNode();
+        ObjectNode request = root.putObject("Request");
+        ObjectNode head = request.putObject("Head");
+        head.put("LicId", properties.getLicenseId());
+        head.put("RecAppId", "HIS");
+        head.put("ContentType", "text/json");
+        head.put("TranCode", type.transactionCode());
+        head.put("Timestamp", LocalDateTime.now().format(TIME));
+        head.put("OrgId", properties.getOrganizationCode());
+        head.put("AppId", properties.getApplicationId());
+        head.put("Version", "1.1");
+        head.put("ServiceVersion", "1.0");
+        head.put("RecOrgId", properties.getOrganizationCode());
+        head.put("IPAddress", "100.100.100.100");
+        head.put("AppType", "PC");
+        head.put("MessageId", UUID.randomUUID().toString());
+        ObjectNode data = request.putObject("Body");
+        data.put("size", properties.getPageSize());
+        data.put("page", String.valueOf(page));
+        return root;
+    }
+
     Page parse(String value, int requestedPage, int requestedSize) {
         try {
             JsonNode root = mapper.readTree(value);
             String ack = text(root, "AckCode", "ackCode");
-            if (ack != null && !List.of("0", "00", "0000", "SUCCESS", "success").contains(ack)) {
+            if (ack != null && !SUCCESS_CODES.contains(ack)) {
                 String message = text(root, "AckMessage", "ackMessage", "message", "msg");
                 throw new HisGatewayException("HIS业务响应失败：" + ack + (message == null ? "" : "，" + message));
+            }
+            String gatewayCode = directText(root, "code", "Code");
+            if (ack == null && gatewayCode != null && !SUCCESS_CODES.contains(gatewayCode)) {
+                String message = directText(root, "message", "Message", "msg");
+                throw new HisGatewayException("HIS网关响应失败：" + gatewayCode + (message == null ? "" : "，" + message));
             }
             JsonNode array = findArray(root);
             List<Map<String, Object>> rows = new ArrayList<>();
@@ -85,7 +105,7 @@ public class HisGatewayClient {
     private static JsonNode findArray(JsonNode node) {
         if (node == null) return null;
         if (node.isArray()) return node;
-        for (String name : List.of("rows", "Rows", "list", "List", "records", "Records", "items", "Items")) {
+        for (String name : List.of("content", "Content", "rows", "Rows", "list", "List", "records", "Records", "items", "Items")) {
             JsonNode found = find(node, name);
             if (found != null && found.isArray()) return found;
         }
@@ -111,6 +131,15 @@ public class HisGatewayClient {
     private static String text(JsonNode root, String... names) {
         for (String name : names) {
             JsonNode node = find(root, name);
+            if (node != null && !node.isNull() && node.isValueNode()) return node.asText().trim();
+        }
+        return null;
+    }
+
+    private static String directText(JsonNode root, String... names) {
+        if (root == null || !root.isObject()) return null;
+        for (String name : names) {
+            JsonNode node = root.get(name);
             if (node != null && !node.isNull() && node.isValueNode()) return node.asText().trim();
         }
         return null;

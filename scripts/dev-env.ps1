@@ -13,5 +13,10 @@ New-Item -ItemType Directory -Force -Path $mavenRepository | Out-Null
 $env:MAVEN_OPTS = "-Dmaven.repo.local=$mavenRepository"
 $env:Path = "$($javaDirectory.FullName)\bin;$($mavenDirectory.FullName)\bin;$env:Path"
 
+$localEnvironmentScript = Join-Path $PSScriptRoot 'dev-env.local.ps1'
+if (Test-Path -LiteralPath $localEnvironmentScript) {
+    . $localEnvironmentScript
+}
+
 Write-Host "JAVA_HOME=$env:JAVA_HOME"
 Write-Host "MAVEN_HOME=$env:MAVEN_HOME"

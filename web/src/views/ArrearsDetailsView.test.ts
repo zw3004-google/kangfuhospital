@@ -27,6 +27,7 @@ describe('ArrearsDetailsView 主管医生工号', () => {
     expect(wrapper.find('.arrears-mobile-card').text()).toContain('康复一病区')
     expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步在院欠费')
     expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步出院欠费')
+    expect(wrapper.findAll('.mobile-sync-actions button')[1].attributes('disabled')).toBeDefined()
   })
 
   it('从 H5 快捷入口触发在院欠费同步并展示批次结果', async () => {

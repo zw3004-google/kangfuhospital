@@ -18,6 +18,7 @@ public class ArrearsImportRow {
     @ExcelProperty(value="医保支付（元）",index=12) public String medicalInsurancePaid;
     @ExcelProperty(value="个人账户支付（元）",index=13) public String personalAccountPaid;
     @ExcelProperty(value="原始应交押金（元）",index=14) public String originalRequiredDeposit;
+    public String interfaceArrearsAmount;
     public String getInpatientNo(){return inpatientNo;} public void setInpatientNo(String v){inpatientNo=v;}
     public Integer getAdmissionTimes(){return admissionTimes;} public void setAdmissionTimes(Integer v){admissionTimes=v;}
     public String getPatientName(){return patientName;} public void setPatientName(String v){patientName=v;}
@@ -33,4 +34,5 @@ public class ArrearsImportRow {
     public String getMedicalInsurancePaid(){return medicalInsurancePaid;} public void setMedicalInsurancePaid(String v){medicalInsurancePaid=v;}
     public String getPersonalAccountPaid(){return personalAccountPaid;} public void setPersonalAccountPaid(String v){personalAccountPaid=v;}
     public String getOriginalRequiredDeposit(){return originalRequiredDeposit;} public void setOriginalRequiredDeposit(String v){originalRequiredDeposit=v;}
+    public String getInterfaceArrearsAmount(){return interfaceArrearsAmount;} public void setInterfaceArrearsAmount(String v){interfaceArrearsAmount=v;}
 }

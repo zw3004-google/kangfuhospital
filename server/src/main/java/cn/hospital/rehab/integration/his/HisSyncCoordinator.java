@@ -66,18 +66,22 @@ public class HisSyncCoordinator {
 
     public boolean isRunning(HisSyncType type) { return running.get(type).get(); }
 
-    private List<Map<String, Object>> fetchAll(HisSyncType type) {
+    List<Map<String, Object>> fetchAll(HisSyncType type) {
         Map<String, Map<String, Object>> unique = new LinkedHashMap<>();
         int pageNumber = 1;
         for (int requested = 1; requested <= properties.getMaxPages(); requested++) {
             HisGatewayClient.Page page = gateway.fetch(type,pageNumber);
+            int previousSize = unique.size();
             for (Map<String,Object> row : page.rows()) {
                 String no=HisFields.text(row,"住院号","inpatientNo","zyh");
                 Integer times=HisFields.positiveInteger(row,"住院次数","住院次","admissionTimes","zycs");
                 String key=(no==null?String.valueOf(unique.size()):no.trim())+"#"+times;
                 unique.put(key,row);
             }
-            if (page.rows().isEmpty() || unique.size() >= page.total() || page.rows().size() < page.size()) return new ArrayList<>(unique.values());
+            if (page.rows().isEmpty()) return new ArrayList<>(unique.values());
+            if (page.total() > page.rows().size() && unique.size() >= page.total()) return new ArrayList<>(unique.values());
+            if (page.rows().size() < page.size()) return new ArrayList<>(unique.values());
+            if (unique.size() == previousSize) throw new HisGatewayException("HIS分页未前进，接口重复返回已有数据");
             pageNumber = Math.max(pageNumber + 1,page.page() + 1);
         }
         throw new HisGatewayException("HIS分页超过安全上限");
@@ -101,6 +105,7 @@ public class HisSyncCoordinator {
             target.medicalInsurancePaid=HisFields.text(row,"医保支付(元)","医保支付（元）","medicalInsurancePaid");
             target.personalAccountPaid=HisFields.text(row,"个人账户支付(元)","个人账户支付（元）","personalAccountPaid");
             target.originalRequiredDeposit=HisFields.text(row,"应交押金(元)","应交押金（元）","原始应交押金（元）","requiredDeposit");
+            target.interfaceArrearsAmount=HisFields.text(row,"欠费金额(元)","欠费金额（元）","欠费金额","arrearsAmount");
             return target;
         }).toList();
     }

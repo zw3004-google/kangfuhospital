@@ -24,11 +24,54 @@ class HisGatewayClientTest {
     }
 
     @Test
+    void buildsWilinkRequestEnvelope() {
+        var properties = new HisProperties();
+        properties.setOrganizationCode("994717");
+        properties.setApplicationId("WiNEX");
+        properties.setLicenseId("license-value");
+        properties.setPageSize(20);
+        var request = new HisGatewayClient(properties,new ObjectMapper())
+                .request(HisSyncType.PATIENT_INFO,2);
+
+        var head=request.path("Request").path("Head");
+        var body=request.path("Request").path("Body");
+        assertThat(head.path("TranCode").asText()).isEqualTo("BDKF-ZYHZXX-xcx");
+        assertThat(head.path("OrgId").asText()).isEqualTo("994717");
+        assertThat(head.path("AppId").asText()).isEqualTo("WiNEX");
+        assertThat(head.path("RecAppId").asText()).isEqualTo("HIS");
+        assertThat(head.path("MessageId").asText()).isNotBlank();
+        assertThat(body.path("size").asInt()).isEqualTo(20);
+        assertThat(body.path("page").asText()).isEqualTo("2");
+        assertThat(request.has("TransactionCode")).isFalse();
+    }
+
+    @Test
+    void parsesActualWilinkSuccessResponse() {
+        var page=client.parse("""
+                {"Response":{"Head":{"AckCode":"100","AckMessage":"调用成功"},
+                "Body":{"data":{"content":[{"住院号":"A001","住院次数":1}],
+                "total":1,"size":20,"page":"1"}}}}
+                """,1,200);
+        assertThat(page.rows()).hasSize(1);
+        assertThat(page.total()).isEqualTo(1);
+        assertThat(page.size()).isEqualTo(20);
+        assertThat(page.page()).isEqualTo(1);
+    }
+
+    @Test
     void rejectsBusinessFailureWithoutLeakingPayload() {
         assertThatThrownBy(()->client.parse("""
                 {"AckCode":"E01","AckMessage":"机构不可用"}
                 """,1,100))
                 .isInstanceOf(HisGatewayException.class).hasMessageContaining("E01").hasMessageContaining("机构不可用");
+    }
+
+    @Test
+    void rejectsFlatGatewayFailure() {
+        assertThatThrownBy(()->client.parse("""
+                {"code":3,"message":"API接口未找到！","timestamp":"2026-09-10 16:00:00"}
+                """,1,100))
+                .isInstanceOf(HisGatewayException.class).hasMessageContaining("3").hasMessageContaining("API接口未找到");
     }
 
     @Test
@@ -38,5 +81,14 @@ class HisGatewayClientTest {
                 "预计出院时间","2026-09-10","医保类型","职工医保")));
         assertThat(rows.getFirst().plannedDischargeAt).isNull();
         assertThat(rows.getFirst().medicalInsuranceType).isEqualTo("职工医保");
+    }
+
+    @Test
+    void mapsInpatientInterfaceArrearsAmount() {
+        var rows=HisSyncCoordinator.mapArrears(List.of(Map.of(
+                "住院号","A001","住院次数",1,"姓名","测试患者","住院病区","测试科室",
+                "欠费金额(元)","123.45")),HisSyncType.INPATIENT_ARREARS);
+
+        assertThat(rows.getFirst().interfaceArrearsAmount).isEqualTo("123.45");
     }
 }

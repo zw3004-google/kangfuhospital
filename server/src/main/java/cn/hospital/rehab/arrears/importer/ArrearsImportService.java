@@ -24,6 +24,7 @@ import cn.hospital.rehab.common.importing.FailedImportBatchRecorder;
 
 @Service
 public class ArrearsImportService {
+    private static final String INPATIENT_ARREARS_TRANSACTION = "BJKF_ZYCX";
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter[] DATE_FORMATS = {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"), DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"),
@@ -42,7 +43,7 @@ public class ArrearsImportService {
         List<ArrearsImportRow> rows = readRows(file);
         if (rows.size() > 1000) throw new IllegalArgumentException("单次导入最多1000条数据");
         if (rows.isEmpty()) throw new IllegalArgumentException("导入文件没有数据行");
-        try { validateRows(rows); }
+        try { validateRows(rows, false); }
         catch (ImportValidationException exception) {
             String failedBatchNo = failedBatches.record("ARREARS", file.getOriginalFilename(), rows.size(), exception.getErrors());
             throw new ImportValidationException(failedBatchNo, exception.getErrors());
@@ -60,7 +61,7 @@ public class ArrearsImportService {
             if (doctor.matched()) matched++; else if (doctor.ambiguous()) ambiguous++; else unmatched++;
             boolean exists = encounterExists(row);
             long encounterId = upsertEncounter(row, doctor);
-            upsertArrears(row, encounterId, batchId);
+            upsertArrears(row, encounterId, batchId, false);
             if (exists) overwritten++; else added++;
         }
         jdbc.sql("""
@@ -78,7 +79,8 @@ public class ArrearsImportService {
     public ArrearsImportResult importApiRows(List<ArrearsImportRow> rows, String transactionCode,
                                               String triggerType, Long startedBy) {
         if (rows.isEmpty()) throw new IllegalArgumentException("HIS接口未返回数据");
-        try { validateRows(rows); }
+        boolean directInterfaceAmount = INPATIENT_ARREARS_TRANSACTION.equals(transactionCode);
+        try { validateRows(rows, directInterfaceAmount); }
         catch (ImportValidationException exception) {
             String failedBatchNo = failedBatches.recordApi("ARREARS", transactionCode, triggerType, startedBy,
                     rows.size(), exception.getErrors());
@@ -98,7 +100,7 @@ public class ArrearsImportService {
             if (doctor.matched()) matched++; else if (doctor.ambiguous()) ambiguous++; else unmatched++;
             boolean exists = encounterExists(row);
             long encounterId = upsertEncounter(row, doctor);
-            upsertArrears(row, encounterId, batchId);
+            upsertArrears(row, encounterId, batchId, directInterfaceAmount);
             if (exists) overwritten++; else added++;
         }
         jdbc.sql("""
@@ -135,15 +137,16 @@ public class ArrearsImportService {
                 .param("admitted", parseDate(row.admittedAt)).param("discharged", parseDate(row.dischargedAt)).query(Long.class).single();
     }
 
-    private void upsertArrears(ArrearsImportRow row, long encounterId, long batchId) {
-        var version = jdbc.sql("SELECT c.id,c.coefficient FROM sys_fee_coefficient c JOIN sys_fee_type t ON t.id=c.fee_type_id WHERE BTRIM(t.fee_name)=:fee AND c.enabled=true")
+    private void upsertArrears(ArrearsImportRow row, long encounterId, long batchId, boolean directInterfaceAmount) {
+        CoefficientVersion version = directInterfaceAmount ? null : jdbc.sql("SELECT c.id,c.coefficient FROM sys_fee_coefficient c JOIN sys_fee_type t ON t.id=c.fee_type_id WHERE BTRIM(t.fee_name)=:fee AND c.enabled=true")
                 .param("fee", row.feeType.trim()).query((r,n) -> new CoefficientVersion(r.getLong("id"), r.getBigDecimal("coefficient"))).optional()
                 .orElseThrow(() -> new IllegalArgumentException("费别未配置启用系数：" + row.feeType));
-        BigDecimal coefficient = version.coefficient();
+        BigDecimal coefficient = directInterfaceAmount ? BigDecimal.ONE : version.coefficient();
         BigDecimal original = decimal(row.originalRequiredDeposit), prepaid = decimal(row.prepaidAmount);
         BigDecimal finalDeposit = original.multiply(coefficient).setScale(2, RoundingMode.HALF_UP);
         BigDecimal difference = prepaid.subtract(finalDeposit).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal arrears = difference.signum() < 0 ? difference.abs() : BigDecimal.ZERO;
+        BigDecimal arrears = directInterfaceAmount ? decimal(row.interfaceArrearsAmount).setScale(2, RoundingMode.HALF_UP)
+                : difference.signum() < 0 ? difference.abs() : BigDecimal.ZERO;
         jdbc.sql("""
                 INSERT INTO arrears_record(encounter_id,import_batch_id,arrears_type,total_cost,prepaid_amount,medical_insurance_paid,personal_account_paid,original_required_deposit,coefficient_version_id,coefficient_snapshot,final_required_deposit,deposit_difference,in_arrears,arrears_amount)
                 VALUES (:encounter,:batch,:type,:total,:prepaid,COALESCE(:insurance,0),COALESCE(:personal,0),:original,:versionId,:coefficient,:finalDeposit,:difference,:inArrears,:arrears)
@@ -151,8 +154,8 @@ public class ArrearsImportService {
                 """).param("encounter", encounterId).param("batch", batchId).param("type", row.arrearsType)
                 .param("total", nullableDecimal(row.totalCost)).param("prepaid", prepaid).param("insurance", nullableDecimal(row.medicalInsurancePaid))
                 .param("personal", nullableDecimal(row.personalAccountPaid)).param("insuranceProvided", !blank(row.medicalInsurancePaid))
-                .param("personalProvided", !blank(row.personalAccountPaid)).param("original", original).param("versionId", version.id()).param("coefficient", coefficient)
-                .param("finalDeposit", finalDeposit).param("difference", difference).param("inArrears", difference.signum() < 0).param("arrears", arrears).update();
+                .param("personalProvided", !blank(row.personalAccountPaid)).param("original", original).param("versionId", version == null ? null : version.id()).param("coefficient", coefficient)
+                .param("finalDeposit", finalDeposit).param("difference", difference).param("inArrears", arrears.signum() != 0).param("arrears", arrears).update();
     }
 
     private DoctorMatch matchDoctor(String employeeNo) {
@@ -187,7 +190,7 @@ public class ArrearsImportService {
             result.originalRequiredDeposit = ExcelSheetRows.value(row, "原始应交押金（元）", "应交押金（元）", "应交押金(元)");
             return result;
         }).toList();
-    }    private void validateRows(List<ArrearsImportRow> rows) {
+    }    private void validateRows(List<ArrearsImportRow> rows, boolean directInterfaceAmount) {
         List<ImportError> errors = new ArrayList<>();
         Set<String> keys = new HashSet<>();
         for (int index = 0; index < rows.size(); index++) {
@@ -197,9 +200,12 @@ public class ArrearsImportService {
             if (row.admissionTimes == null || row.admissionTimes < 1) error(errors, excelRow, row, "住院次数", String.valueOf(row.admissionTimes), "INVALID_FORMAT", "住院次数必须为正整数");
             required(errors, excelRow, row, "姓名", row.patientName);
             required(errors, excelRow, row, "住院病区", row.wardName);
-            required(errors, excelRow, row, "费别", row.feeType);
-            required(errors, excelRow, row, "预交金（元）", row.prepaidAmount);
-            required(errors, excelRow, row, "原始应交押金（元）", row.originalRequiredDeposit);
+            if (directInterfaceAmount) required(errors, excelRow, row, "欠费金额（元）", row.interfaceArrearsAmount);
+            else {
+                required(errors, excelRow, row, "费别", row.feeType);
+                required(errors, excelRow, row, "预交金（元）", row.prepaidAmount);
+                required(errors, excelRow, row, "原始应交押金（元）", row.originalRequiredDeposit);
+            }
             if (!blank(row.inpatientNo) && row.admissionTimes != null && !keys.add(row.inpatientNo.trim() + "#" + row.admissionTimes))
                 error(errors, excelRow, row, "住院号+住院次数", row.inpatientNo + "/" + row.admissionTimes, "DUPLICATE_KEY_IN_FILE", "文件内存在重复住院记录");
             validateDecimal(errors, excelRow, row, "预交金（元）", row.prepaidAmount, true);
@@ -207,17 +213,19 @@ public class ArrearsImportService {
             validateDecimal(errors, excelRow, row, "总费用", row.totalCost, false);
             validateDecimal(errors, excelRow, row, "医保支付（元）", row.medicalInsurancePaid, false);
             validateDecimal(errors, excelRow, row, "个人账户支付（元）", row.personalAccountPaid, false);
+            if (directInterfaceAmount) validateSignedDecimal(errors, excelRow, row, "欠费金额（元）", row.interfaceArrearsAmount);
             validateDate(errors, excelRow, row, "入区日期", row.admittedAt);
             validateDate(errors, excelRow, row, "出区日期", row.dischargedAt);
             if (!blank(row.wardName) && !jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_department WHERE department_name=:name AND enabled=true)").param("name", row.wardName.trim()).query(Boolean.class).single())
                 error(errors, excelRow, row, "住院病区", row.wardName, "DEPARTMENT_NOT_FOUND", "科室无法匹配");
-            if (!blank(row.feeType) && !jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_fee_coefficient c JOIN sys_fee_type t ON t.id=c.fee_type_id WHERE BTRIM(t.fee_name)=:fee AND c.enabled=true)").param("fee", row.feeType.trim()).query(Boolean.class).single())
+            if (!directInterfaceAmount && !blank(row.feeType) && !jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_fee_coefficient c JOIN sys_fee_type t ON t.id=c.fee_type_id WHERE BTRIM(t.fee_name)=:fee AND c.enabled=true)").param("fee", row.feeType.trim()).query(Boolean.class).single())
                 error(errors, excelRow, row, "费别", row.feeType, "FEE_COEFFICIENT_NOT_FOUND", "费别未配置启用系数");
         }
         if (!errors.isEmpty()) throw new ImportValidationException(errors);
     }
     private static void required(List<ImportError> errors, int n, ArrearsImportRow r, String field, String value) { if (blank(value)) error(errors,n,r,field,value,"MISSING_REQUIRED",field+"不能为空"); }
     private static void validateDecimal(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value,boolean required){if(blank(value)){return;}try{if(decimal(value).signum()<0)throw new NumberFormatException();}catch(NumberFormatException e){error(errors,n,r,field,value,"INVALID_FORMAT",field+"必须为非负金额");}}
+    private static void validateSignedDecimal(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value){if(blank(value))return;try{decimal(value);}catch(NumberFormatException e){error(errors,n,r,field,value,"INVALID_FORMAT",field+"必须为有效金额");}}
     private static void validateDate(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value){if(blank(value))return;try{parseDate(value);}catch(IllegalArgumentException e){error(errors,n,r,field,value,"INVALID_FORMAT",e.getMessage());}}
     private static void error(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value,String code,String message){errors.add(new ImportError(n,r.inpatientNo,r.admissionTimes,field,value,code,message));}
     private static boolean blank(String value) { return value == null || value.isBlank(); }

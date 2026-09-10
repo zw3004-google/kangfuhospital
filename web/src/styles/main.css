@@ -79,6 +79,11 @@ a { color: inherit; text-decoration: none; }
 .role-grid .el-checkbox { margin: 0; width: 100%; }
 .role-alert { margin: 22px 0; }
 .danger-text { color: #e34d59; font-weight: 600; }
+.his-sync-config-page .el-table .his-sync-disabled-row > td.el-table__cell { background: #f5f7fa; color: #a8abb2; }
+.his-sync-config-page .his-sync-disabled-row strong { color: #a8abb2; }
+.his-sync-config-page .unavailable-tag { margin-left: 8px; }
+.his-sync-mobile-card.his-sync-disabled-card { background: #f5f7fa; opacity: .72; }
+.his-sync-mobile-card.his-sync-disabled-card .his-sync-mobile-controls { background: #eef1f5; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 24px 0; }
 .stat-grid > div { padding: 20px 24px; border-radius: 10px; background: #f5f8fd; }
 .stat-grid span, .stat-grid strong { display: block; }

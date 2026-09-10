@@ -49,7 +49,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </div>
 <div class="heading-actions">
 <el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='INPATIENT_ARREARS'" :disabled="!!syncing" @click="syncHis('INPATIENT_ARREARS','在院欠费')">同步在院欠费</el-button>
-<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='DISCHARGED_ARREARS'" :disabled="!!syncing" @click="syncHis('DISCHARGED_ARREARS','出院欠费')">同步出院欠费</el-button>
+<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" disabled title="暂不可用">同步出院欠费</el-button>
 <el-dropdown v-permission="'PERM_API_ARREARS_EXPORT'" @command="exportData">
 <el-button plain>导出<el-icon class="el-icon--right"><ArrowDown/></el-icon></el-button>
 <template #dropdown><el-dropdown-menu><el-dropdown-item command="xlsx">导出 Excel</el-dropdown-item><el-dropdown-item command="csv">导出 CSV</el-dropdown-item></el-dropdown-menu></template>
@@ -67,7 +67,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </el-alert>
 <div class="mobile-only mobile-sync-actions" aria-label="HIS 欠费同步">
 <el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='INPATIENT_ARREARS'" :disabled="!!syncing" @click="syncHis('INPATIENT_ARREARS','在院欠费')">同步在院欠费</el-button>
-<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='DISCHARGED_ARREARS'" :disabled="!!syncing" @click="syncHis('DISCHARGED_ARREARS','出院欠费')">同步出院欠费</el-button>
+<el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" disabled title="暂不可用">同步出院欠费</el-button>
 </div>
 <div v-loading="summaryLoading" class="stat-grid">
 <div>

@@ -13,7 +13,7 @@ const configs=[
 ]
 
 describe('HisSyncConfigView H5',()=>{
-  it('使用移动卡片展示三类配置并保存当前配置',async()=>{
+  it('置灰出院欠费配置并禁止操作',async()=>{
     getMock.mockResolvedValue({data:{data:configs}})
     putMock.mockImplementation((_url:string,body:unknown)=>Promise.resolve({data:{data:{...configs[1],...(body as object)}}}))
     const wrapper=mount(HisSyncConfigView,{global:{plugins:[ElementPlus]}})
@@ -22,8 +22,14 @@ describe('HisSyncConfigView H5',()=>{
     expect(wrapper.find('.his-sync-mobile-list').text()).toContain('在院患者欠费')
     expect(wrapper.find('.his-sync-mobile-list').text()).toContain('网关暂不可用')
     expect(wrapper.find('.his-sync-mobile-list').text()).toContain('运行中')
-    await wrapper.findAll('.his-sync-mobile-card footer button')[1].trigger('click')
+    const dischargedCard=wrapper.findAll('.his-sync-mobile-card')[1]
+    expect(dischargedCard.classes()).toContain('his-sync-disabled-card')
+    expect(dischargedCard.text()).toContain('暂不可用')
+    expect(dischargedCard.find('.el-switch').classes()).toContain('is-disabled')
+    expect(dischargedCard.find('.el-date-editor').classes()).toContain('is-disabled')
+    expect(dischargedCard.find('footer button').attributes('disabled')).toBeDefined()
+    await dischargedCard.find('footer button').trigger('click')
     await flushPromises()
-    expect(putMock).toHaveBeenCalledWith('/integration/his-sync/configs/DISCHARGED_ARREARS',{enabled:false,dailyTime:'08:00:00'})
+    expect(putMock).not.toHaveBeenCalled()
   })
 })

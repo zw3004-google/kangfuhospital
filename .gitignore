@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+scripts/dev-env.local.ps1
 docs/phase5/开发环境企微连通测试数据.md
 .tools/
 .pnpm-store/
