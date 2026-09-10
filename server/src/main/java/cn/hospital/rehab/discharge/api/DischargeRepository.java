@@ -162,7 +162,7 @@ public class DischargeRepository {
                         (:timeType='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation n WHERE n.encounter_id=e.id AND n.deleted=false AND n.appointment_at >= COALESCE(:startAt,n.appointment_at) AND n.appointment_at < COALESCE(:endAt,n.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation h WHERE h.encounter_id=e.id AND h.deleted=false AND h.appointment_at >= COALESCE(:startAt,h.appointment_at) AND h.appointment_at < COALESCE(:endAt,h.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='FOLLOW_UP' AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) >= COALESCE(:startAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at)) AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) < COALESCE(:endAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) + INTERVAL '1 microsecond')))
-                """ + scope + " ORDER BY CASE WHEN :category='BOARD' THEN d.planned_discharge_at END ASC NULLS LAST,e.admitted_at DESC NULLS LAST LIMIT :limit OFFSET :offset";
+                """ + scope + " ORDER BY CASE WHEN :category='BOARD' THEN d.planned_discharge_at END DESC NULLS LAST,e.admitted_at DESC NULLS LAST LIMIT :limit OFFSET :offset";
     }
 
     private String buildCountSql(String scope) {
