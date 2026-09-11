@@ -10,8 +10,19 @@ ARCH="$(detect_arch)"
 info "检测到架构 ${ARCH}"
 
 if compgen -G "${PACKAGE_ROOT}/rpms/*.rpm" >/dev/null; then
-  info "安装随包 RPM（完全离线，不访问软件源）"
-  dnf install -y --disablerepo='*' "${PACKAGE_ROOT}"/rpms/*.rpm
+  rpm_files=()
+  for rpm_file in "${PACKAGE_ROOT}"/rpms/*.rpm; do
+    rpm_name="$(rpm -qp --qf '%{NAME}' "${rpm_file}")"
+    if rpm -q "${rpm_name}" >/dev/null 2>&1; then
+      info "跳过已安装 RPM：${rpm_name}"
+    else
+      rpm_files+=("${rpm_file}")
+    fi
+  done
+  if [[ ${#rpm_files[@]} -gt 0 ]]; then
+    info "安装随包缺失 RPM（完全离线，不访问软件源）"
+    dnf install -y --disablerepo='*' "${rpm_files[@]}"
+  fi
 fi
 
 for command_name in nginx psql pg_isready openssl curl; do
