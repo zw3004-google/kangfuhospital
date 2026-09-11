@@ -4,7 +4,7 @@ source "$(dirname "$0")/common.sh"
 require_root
 
 [[ -f /etc/openEuler-release ]] || die "未检测到 openEuler"
-grep -q '22.03' /etc/openEuler-release || die "本安装包仅针对 openEuler 22.03 SP3 验证"
+grep -q '22.03 (LTS-SP4)' /etc/openEuler-release || die "本安装包仅针对 openEuler 22.03 LTS-SP4 验证"
 require_x86_64
 ARCH="$(detect_arch)"
 info "检测到架构 ${ARCH}"

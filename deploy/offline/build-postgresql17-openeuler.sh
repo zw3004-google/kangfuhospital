@@ -44,7 +44,7 @@ cat >"${TOPDIR}/SPECS/kangfu-postgresql17.spec" <<EOF
 %global debug_package %{nil}
 Name:           kangfu-postgresql17
 Version:        ${PG_VERSION}
-Release:        1.oe2203sp3
+Release:        1.oe2203sp4
 Summary:        PostgreSQL 17 server and client for Kangfu Hospital
 License:        PostgreSQL
 URL:            https://www.postgresql.org/
@@ -55,7 +55,7 @@ BuildRequires:  gcc make readline-devel zlib-devel openssl-devel perl bison flex
 Requires:       readline zlib openssl-libs systemd shadow-utils util-linux
 
 %description
-Native PostgreSQL 17 server and client built on openEuler 22.03 SP3 x86_64.
+Native PostgreSQL 17 server and client built on openEuler 22.03 LTS-SP4 x86_64.
 
 %prep
 %setup -q -n postgresql-${PG_VERSION}
@@ -95,7 +95,7 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 
 %changelog
 * Fri Sep 04 2026 Kangfu Deployment <ops@localhost> - ${PG_VERSION}-1
-- Native offline build for openEuler 22.03 SP3 x86_64
+- Native offline build for openEuler 22.03 LTS-SP4 x86_64
 EOF
 
 rpmbuild --define "_topdir ${TOPDIR}" -bb "${TOPDIR}/SPECS/kangfu-postgresql17.spec"

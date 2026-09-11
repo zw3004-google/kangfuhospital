@@ -1,6 +1,6 @@
 康复医院运营管理系统测试环境离线安装包
 
-目标系统：openEuler 22.03 SP3 x86_64
+目标系统：openEuler 22.03 LTS-SP4 x86_64
 目标地址：172.16.196.111
 
 目录说明：
@@ -8,7 +8,7 @@
   config/    应用、Nginx 和 systemd 配置模板
   scripts/   安装、升级、备份、恢复、检查脚本
   runtime/   已包含 Linux x86_64 Temurin JRE 21
-  rpms/      已包含 PostgreSQL 17、Nginx 和全部离线依赖
+  rpms/      仅包含 PostgreSQL 17、Nginx 及缺失的应用依赖；不包含基础系统 RPM
   checksums/ 文件完整性清单
 
 首次部署：

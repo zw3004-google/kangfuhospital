@@ -18,7 +18,7 @@ check_header() {
   fi
 }
 
-check "操作系统版本" grep -q '22.03' /etc/openEuler-release
+check "操作系统版本" grep -q '22.03 (LTS-SP4)' /etc/openEuler-release
 check "CPU 架构为 x86_64" test "$(uname -m)" = "x86_64"
 check "时区为 Asia/Shanghai" test "$(timedatectl show -p Timezone --value)" = "Asia/Shanghai"
 check "PostgreSQL 可用" pg_isready -h 127.0.0.1 -p 5432

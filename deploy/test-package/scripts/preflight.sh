@@ -5,7 +5,7 @@ source "$(dirname "$0")/common.sh"
 failed=0
 pass() { echo "[通过] $1"; }
 fail() { echo "[失败] $1"; failed=1; }
-grep -q '22.03' /etc/openEuler-release 2>/dev/null && pass "openEuler 22.03" || fail "不是 openEuler 22.03"
+grep -q '22.03 (LTS-SP4)' /etc/openEuler-release 2>/dev/null && pass "openEuler 22.03 LTS-SP4" || fail "不是 openEuler 22.03 LTS-SP4"
 [[ "$(uname -m)" == "x86_64" ]] && pass "x86_64 架构" || fail "架构不是 x86_64"
 [[ "$(timedatectl show -p Timezone --value 2>/dev/null)" == "Asia/Shanghai" ]] && pass "时区 Asia/Shanghai" || fail "时区不是 Asia/Shanghai"
 for name in nginx psql pg_isready openssl curl sudo; do
