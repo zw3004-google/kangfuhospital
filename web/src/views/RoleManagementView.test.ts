@@ -54,7 +54,7 @@ describe('RoleManagementView', () => {
     await save!.trigger('click')
     await flushPromises()
     expect(mocks.confirm).toHaveBeenCalledWith(expect.stringContaining('普通角色'), '保存权限确认', expect.objectContaining({ type: 'warning' }))
-    expect(mocks.put).toHaveBeenCalledWith('/system/permissions/roles/2/scope', { permissionIds: [11, 12], departmentIds: [], expectedPermissionIds: [], expectedDepartmentIds: [] })
+    expect(mocks.put).toHaveBeenCalledWith('/system/permissions/roles/2', { permissionIds: [11, 12], expectedPermissionIds: [] })
     expect(wrapper.find('.permission-check-grid').exists()).toBe(true)
   })
 

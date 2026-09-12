@@ -38,11 +38,10 @@ public class DataScopeService {
         if (authorities.stream().anyMatch(FULL_ACCESS_ROLES::contains)) return DataScope.all();
 
         Set<Long> departments = new HashSet<>(jdbc.sql("""
-                SELECT DISTINCT rd.department_id
-                  FROM sys_user_role ur
-                  JOIN sys_role r ON r.id=ur.role_id
-                  JOIN sys_role_department rd ON rd.role_id=ur.role_id
-                 WHERE ur.user_id=:userId AND r.enabled=true
+                SELECT ud.department_id
+                  FROM sys_user_department ud
+                  JOIN sys_department d ON d.id=ud.department_id
+                 WHERE ud.user_id=:userId AND d.enabled=true
                 """).param("userId", userId).query(Long.class).list());
         Long doctorUserId = authorities.contains("ROLE_ATTENDING_DOCTOR") ? userId : null;
         return new DataScope(false, departments, doctorUserId);

@@ -227,7 +227,7 @@ const triggerReminder = async () => {
 }
 const formatTime = (value: string | null) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'
 const abnormalLabels: Record<string, string> = { LATE_PLAN: '出院前12小时内填报', MISSING_PLAN: '未填报预计出院时间', DATE_MISMATCH: '预计与实际出院日期不一致' }
-const abnormalText = (row: DetailRow) => [...(row.abnormalCodes || []).map(code => abnormalLabels[code] || code), ...(row.abnormalReason ? [row.abnormalReason] : [])].join('；') || '—'
+const abnormalText = (row: DetailRow) => (row.abnormalCodes || []).map(code => abnormalLabels[code] || code).join('；') || '—'
 
 const resize = () => chart?.resize()
 onMounted(() => { window.addEventListener('resize', resize); load(); loadDepartments(); loadDetails() })
@@ -288,7 +288,7 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
         <article v-for="row in detailRows" :key="row.id" class="mobile-record-card">
           <header><div><strong>{{ row.patientName }}</strong><span>{{ row.inpatientNo }} · 第{{ row.admissionTimes }}次住院</span></div><el-tag effect="light">{{ activeCategory }}</el-tag></header>
           <dl><div><dt>所属科室</dt><dd>{{ row.departmentName || '—' }}</dd></div><div><dt>主管医生</dt><dd>{{ row.doctorName || '—' }}</dd></div><div><dt>预计出院</dt><dd>{{ formatTime(row.plannedDischargeAt) }}</dd></div><div><dt>实际出院</dt><dd>{{ formatTime(row.actualDischargeAt) }}</dd></div><div v-if="activeCategory === 'NUTRITION'"><dt>营养会诊</dt><dd>{{ formatTime(row.latestNutritionAppointmentAt) }}</dd></div><div v-if="activeCategory === 'HOME_REHAB'"><dt>居家康复</dt><dd>{{ formatTime(row.latestHomeRehabAppointmentAt) }}</dd></div><div v-if="activeCategory === 'OUTPATIENT'"><dt>复诊预约</dt><dd>{{ formatTime(row.outpatientAppointmentAt) }}</dd></div></dl>
-          <p v-if="activeCategory === 'ABNORMAL'" class="mobile-record-alert">{{ abnormalText(row) }}</p>
+          <template v-if="activeCategory === 'ABNORMAL'"><p class="mobile-record-alert"><strong>异常原因分类：</strong>{{ abnormalText(row) }}</p><p class="mobile-record-alert mobile-record-reason-report"><strong>异常原因填报：</strong>{{ row.abnormalReason || '—' }}</p></template>
         </article>
       </div>
       <el-table v-if="detailRows.length" v-loading="detailLoading" :data="detailRows" stripe class="analysis-detail-table desktop-only">
@@ -324,7 +324,7 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
         <template v-else>
           <el-table-column label="预计出院时间" width="175"><template #default="scope">{{ formatTime(scope.row.plannedDischargeAt) }}</template></el-table-column>
           <el-table-column label="实际出院时间" width="175"><template #default="scope">{{ formatTime(scope.row.actualDischargeAt) }}</template></el-table-column>
-          <el-table-column label="异常原因" min-width="260"><template #default="scope"><span class="danger-text">{{ abnormalText(scope.row) }}</span></template></el-table-column>
+          <el-table-column label="异常原因分类" min-width="260"><template #default="scope"><span class="danger-text">{{ abnormalText(scope.row) }}</span></template></el-table-column><el-table-column label="异常原因填报" min-width="260" show-overflow-tooltip><template #default="scope">{{ scope.row.abnormalReason || '—' }}</template></el-table-column>
         </template>
       </el-table>
       <el-pagination v-model:current-page="detailPage" v-model:page-size="detailPageSize" :page-sizes="[20, 50, 100, 200]" :total="detailTotal" layout="total,sizes,prev,pager,next" class="pagination" @change="loadDetails" />

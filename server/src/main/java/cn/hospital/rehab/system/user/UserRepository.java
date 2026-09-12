@@ -89,6 +89,7 @@ public class UserRepository {
 
     public void delete(long id) {
         jdbc.sql("DELETE FROM sys_user_role WHERE user_id=:id").param("id", id).update();
+        jdbc.sql("DELETE FROM sys_user_department WHERE user_id=:id").param("id", id).update();
         jdbc.sql("DELETE FROM sys_user WHERE id=:id").param("id", id).update();
     }
     public void resetPassword(long id, String passwordHash) {
@@ -111,6 +112,18 @@ public class UserRepository {
         }
     }
 
+    public List<Long> departmentAccessIds(long userId) {
+        return jdbc.sql("SELECT department_id FROM sys_user_department WHERE user_id=:userId ORDER BY department_id")
+                .param("userId", userId).query(Long.class).list();
+    }
+
+    public void replaceDepartmentAccess(long userId, Set<Long> departmentIds) {
+        jdbc.sql("DELETE FROM sys_user_department WHERE user_id=:userId").param("userId", userId).update();
+        for (Long departmentId : departmentIds) {
+            jdbc.sql("INSERT INTO sys_user_department(user_id,department_id) VALUES(:userId,:departmentId)")
+                    .param("userId", userId).param("departmentId", departmentId).update();
+        }
+    }
     private UserSummary map(ResultSet rs, int row) throws SQLException {
         long id = rs.getLong("id");
         List<Role> roles = jdbc.sql("""

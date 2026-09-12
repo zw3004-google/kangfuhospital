@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.Set;
+import java.util.List;
 
 @Service
 public class UserService {
@@ -90,6 +91,21 @@ public class UserService {
         return requireUser(id);
     }
 
+    public List<Long> departmentAccessIds(long id) {
+        requireUser(id);
+        return users.departmentAccessIds(id);
+    }
+
+    @Transactional
+    public void assignDepartmentAccess(long id, AssignDepartmentsRequest request) {
+        requireUser(id);
+        for (Long departmentId : request.departmentIds()) {
+            var department = departments.findById(departmentId)
+                    .orElseThrow(() -> new IllegalArgumentException("可访问科室不存在：" + departmentId));
+            if (!department.enabled()) throw new IllegalArgumentException("不能分配已停用科室：" + departmentId);
+        }
+        users.replaceDepartmentAccess(id, request.departmentIds());
+    }
     private UserSummary requireUser(long id) {
         return users.findById(id).orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }

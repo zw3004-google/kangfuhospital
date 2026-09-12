@@ -71,4 +71,18 @@ public class UserController {
     ApiResponse<UserSummary> assignRoles(Authentication auth,@PathVariable long id, @Valid @RequestBody AssignRolesRequest request) {
         var u=service.assignRoles(id, request); audit.record(auth,"SYSTEM","USER",String.valueOf(id),"ASSIGN_ROLES",null,u); return ApiResponse.ok(u);
     }
-}
+
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @GetMapping("/{id}/departments")
+    ApiResponse<java.util.List<Long>> departmentAccess(@PathVariable long id) {
+        return ApiResponse.ok(service.departmentAccessIds(id));
+    }
+
+    @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")
+    @PutMapping("/{id}/departments")
+    ApiResponse<Void> assignDepartments(Authentication auth, @PathVariable long id, @Valid @RequestBody AssignDepartmentsRequest request) {
+        var before = service.departmentAccessIds(id);
+        service.assignDepartmentAccess(id, request);
+        audit.record(auth, "SYSTEM", "USER", String.valueOf(id), "ASSIGN_DEPARTMENTS", before, request.departmentIds());
+        return ApiResponse.ok(null);
+    }}

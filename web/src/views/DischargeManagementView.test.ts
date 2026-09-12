@@ -16,12 +16,12 @@ describe('DischargeManagementView',()=>{
     getMock.mockImplementation((url:string)=>{
       if(url==='/discharge/records/filter-options')return Promise.resolve({data:{data:[{id:1,departmentName:'康复一科'}]}})
       if(url==='/discharge/records/summary')return Promise.resolve({data:{data:{inpatientCount:10,plannedCount:8,nutritionPatientCount:3,nutritionRecordCount:4,homeRehabPatientCount:2,homeRehabRecordCount:3,outpatientPatientCount:5}}})
-      return Promise.resolve({data:{data:{items:[row],total:1,page:1,pageSize:50}}})
+      return Promise.resolve({data:{data:{items:[row],total:1,page:1,pageSize:10}}})
     })
     const wrapper=mount(DischargeManagementView,{global:{plugins:[ElementPlus],directives:{permission:()=>{}}}})
     await flushPromises()
 
-    expect(getMock).toHaveBeenCalledWith('/discharge/records',expect.objectContaining({params:expect.objectContaining({page:1,pageSize:50})}))
+    expect(getMock).toHaveBeenCalledWith('/discharge/records',expect.objectContaining({params:expect.objectContaining({page:1,pageSize:10})}))
     expect(getMock).toHaveBeenCalledWith('/discharge/records/summary',expect.anything())
     expect(wrapper.text()).toContain('在院患者10 人')
     expect(wrapper.text()).toContain('共 4 条预约记录')
@@ -40,7 +40,7 @@ describe('DischargeManagementView',()=>{
   })
 
   it('从 H5 快捷入口同步患者信息并展示批次结果',async()=>{
-    getMock.mockImplementation((url:string)=>url==='/discharge/records/filter-options'?Promise.resolve({data:{data:[]}}):url==='/discharge/records/summary'?Promise.resolve({data:{data:{}}}):Promise.resolve({data:{data:{items:[],total:0,page:1,pageSize:50}}}))
+    getMock.mockImplementation((url:string)=>url==='/discharge/records/filter-options'?Promise.resolve({data:{data:[]}}):url==='/discharge/records/summary'?Promise.resolve({data:{data:{}}}):Promise.resolve({data:{data:{items:[],total:0,page:1,pageSize:10}}}))
     postMock.mockResolvedValue({data:{data:{batchNo:'HIS-PATIENT-001',total:1,success:1,failure:0,added:1,overwritten:0,skipped:0}}})
     const wrapper=mount(DischargeManagementView,{global:{plugins:[ElementPlus],directives:{permission:()=>{}}}})
     await flushPromises()
@@ -52,11 +52,11 @@ describe('DischargeManagementView',()=>{
   })
 
   it('提供完整筛选项和规定分页规格',async()=>{
-    getMock.mockImplementation((url:string)=>url==='/discharge/records/filter-options'?Promise.resolve({data:{data:[]}}):url==='/discharge/records/summary'?Promise.resolve({data:{data:{}}}):Promise.resolve({data:{data:{items:[],total:0,page:1,pageSize:50}}}))
+    getMock.mockImplementation((url:string)=>url==='/discharge/records/filter-options'?Promise.resolve({data:{data:[]}}):url==='/discharge/records/summary'?Promise.resolve({data:{data:{}}}):Promise.resolve({data:{data:{items:[],total:0,page:1,pageSize:10}}}))
     const wrapper=mount(DischargeManagementView,{global:{plugins:[ElementPlus],directives:{permission:()=>{}}}});await flushPromises()
     expect(wrapper.find('input[placeholder="住院号 / 姓名 / 主管医生"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('时间类型（全部）')
-    expect(wrapper.findComponent({name:'ElPagination'}).props('pageSizes')).toEqual([20,50,100,200])
+    expect(wrapper.findComponent({name:'ElPagination'}).props('pageSizes')).toEqual([10,20,50,100,200])
     expect(wrapper.find('input[type="file"]').attributes('accept')).toBe('.xls,.xlsx')
   })
 
@@ -68,7 +68,7 @@ describe('DischargeManagementView',()=>{
       if(url==='/discharge/records/1')return Promise.resolve({data:{data:detail}})
       if(url==='/discharge/records/1/history')return Promise.resolve({data:{data:[{id:9,operatorName:'doctor01',operatedAt:'2026-09-03T09:00:00+08:00',actionType:'UPDATE',beforeData:'{"plannedDischargeAt":"2026-09-04"}',afterData:'{"plannedDischargeAt":"2026-09-05"}'}]}})
       if(url==='/discharge/consultations')return Promise.resolve({data:{data:[]}})
-      return Promise.resolve({data:{data:{items:[detail],total:1,page:1,pageSize:50}}})
+      return Promise.resolve({data:{data:{items:[detail],total:1,page:1,pageSize:10}}})
     })
     const wrapper=mount(DischargeManagementView,{global:{plugins:[ElementPlus],directives:{permission:()=>{}}}});await flushPromises()
     const editButton=wrapper.findAll('button').find(button=>button.text()==='编辑')
