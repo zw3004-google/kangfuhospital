@@ -33,6 +33,11 @@ SELECT r.id,d.id FROM sys_role r CROSS JOIN sys_department d
 WHERE r.role_code='DEPARTMENT_DIRECTOR' AND d.department_code='TEST-A'
 ON CONFLICT DO NOTHING;
 
+INSERT INTO sys_user_department(user_id,department_id)
+SELECT u.id,u.department_id FROM sys_user u
+WHERE u.login_name='test_director'
+ON CONFLICT DO NOTHING;
+
 INSERT INTO patient_encounter(inpatient_no,admission_times,patient_name,department_id,ward_name,fee_type,
                               doctor_name_source,doctor_employee_no,doctor_user_id,doctor_match_status,admitted_at)
 SELECT v.inpatient_no,1,v.patient_name,d.id,d.department_name,'TEST',u.display_name,u.employee_no,u.id,'MATCHED',

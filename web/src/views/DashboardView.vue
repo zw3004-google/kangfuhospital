@@ -10,11 +10,8 @@ const modules = [
   <section>
     <div class="welcome-card">
       <div>
-        <p>本地开发环境</p>
         <h2>康复医院运营管理系统</h2>
-        <span>第一期工程已启动，当前正在建设基础数据与导入能力。</span>
       </div>
-      <div class="status-badge">开发中</div>
     </div>
     <div class="module-grid">
       <router-link v-for="module in modules" :key="module.title" :to="module.path" class="module-card">
