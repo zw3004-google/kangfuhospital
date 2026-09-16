@@ -167,6 +167,35 @@ class ApplicationPostgresIntegrationTest {
     }
 
     @Test
+    @Transactional
+    void dischargedExcelArrearsUsesSourceDepositAndArrearsAmountsWithoutFeeCoefficient() {
+        ArrearsImportRow row = arrearsRow("EXCEL-DISCHARGED-SOURCE-001");
+        row.feeType = "NO_COEFFICIENT_REQUIRED";
+        row.arrearsType = "DISCHARGED_SETTLED";
+        row.dischargedAt = "2026-09-15";
+        row.prepaidAmount = "100";
+        row.originalRequiredDeposit = "200";
+        row.arrearsAmount = "345.67";
+
+        var result = arrearsImportService.importFile(workbook("discharged-arrears-source.xlsx", ArrearsImportRow.class, List.of(row)));
+
+        assertThat(result.added()).isEqualTo(1);
+        record Imported(java.math.BigDecimal original, java.math.BigDecimal finalDeposit,
+                        java.math.BigDecimal amount, Long coefficientVersionId) { }
+        Imported imported = jdbc.sql("""
+                SELECT a.original_required_deposit,a.final_required_deposit,a.arrears_amount,a.coefficient_version_id
+                FROM arrears_record a JOIN patient_encounter e ON e.id=a.encounter_id
+                WHERE e.inpatient_no='EXCEL-DISCHARGED-SOURCE-001' AND e.admission_times=1
+                """).query((r,n) -> new Imported(r.getBigDecimal("original_required_deposit"),
+                r.getBigDecimal("final_required_deposit"), r.getBigDecimal("arrears_amount"),
+                r.getObject("coefficient_version_id", Long.class))).single();
+        assertThat(imported.original()).isEqualByComparingTo("200");
+        assertThat(imported.finalDeposit()).isEqualByComparingTo("200");
+        assertThat(imported.amount()).isEqualByComparingTo("345.67");
+        assertThat(imported.coefficientVersionId()).isNull();
+    }
+
+    @Test
     void systemAdministratorAutomaticallyHasEveryEnabledPermission() throws Exception {
         mvc.perform(get("/api/system/me").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
@@ -834,8 +863,8 @@ class ApplicationPostgresIntegrationTest {
             List<List<Object>> data=rows.stream().map(value->{DischargeImportRow r=(DischargeImportRow)value;return List.<Object>of(r.inpatientNo,r.admissionTimes,r.patientName,r.wardName,r.feeType==null?"":r.feeType,r.doctorName==null?"":r.doctorName,r.doctorEmployeeNo==null?"":r.doctorEmployeeNo,r.admittedAt==null?"":r.admittedAt,r.plannedDischargeAt==null?"":r.plannedDischargeAt,r.actualDischargeAt==null?"":r.actualDischargeAt);}).toList();
             EasyExcel.write(out).head(head).sheet().doWrite(data);
         }else{
-            List<List<String>> head=List.of("住院号","住院次数","姓名","住院病区","费别","欠费类型","主管医生","主管医生工号","入区日期","出区日期","总费用","预交金（元）","医保支付（元）","个人账户支付（元）","原始应交押金（元）").stream().map(List::of).toList();
-            List<List<Object>> data=rows.stream().map(value->{ArrearsImportRow r=(ArrearsImportRow)value;return List.<Object>of(r.inpatientNo,r.admissionTimes,r.patientName,r.wardName,r.feeType,r.arrearsType==null?"":r.arrearsType,r.doctorName==null?"":r.doctorName,r.doctorEmployeeNo==null?"":r.doctorEmployeeNo,r.admittedAt==null?"":r.admittedAt,r.dischargedAt==null?"":r.dischargedAt,r.totalCost==null?"":r.totalCost,r.prepaidAmount,r.medicalInsurancePaid==null?"":r.medicalInsurancePaid,r.personalAccountPaid==null?"":r.personalAccountPaid,r.originalRequiredDeposit);}).toList();
+            List<List<String>> head=List.of("住院号","住院次数","姓名","住院病区","费别","欠费类型","主管医生","主管医生工号","入区日期","出区日期","总费用","预交金（元）","医保支付（元）","个人账户支付（元）","原始应交押金（元）","\u6b20\u8d39\u91d1\u989d").stream().map(List::of).toList();
+            List<List<Object>> data=rows.stream().map(value->{ArrearsImportRow r=(ArrearsImportRow)value;return List.<Object>of(r.inpatientNo,r.admissionTimes,r.patientName,r.wardName,r.feeType,r.arrearsType==null?"":r.arrearsType,r.doctorName==null?"":r.doctorName,r.doctorEmployeeNo==null?"":r.doctorEmployeeNo,r.admittedAt==null?"":r.admittedAt,r.dischargedAt==null?"":r.dischargedAt,r.totalCost==null?"":r.totalCost,r.prepaidAmount,r.medicalInsurancePaid==null?"":r.medicalInsurancePaid,r.personalAccountPaid==null?"":r.personalAccountPaid,r.originalRequiredDeposit,r.arrearsAmount==null?"":r.arrearsAmount);}).toList();
             EasyExcel.write(out).head(head).sheet().doWrite(data);
         }
         return new MockMultipartFile("file",name,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",out.toByteArray());
