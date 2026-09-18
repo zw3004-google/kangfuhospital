@@ -233,7 +233,7 @@ public class ArrearsImportService {
     private static void validateDecimal(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value,boolean required){if(blank(value)){return;}try{if(decimal(value).signum()<0)throw new NumberFormatException();}catch(NumberFormatException e){error(errors,n,r,field,value,"INVALID_FORMAT",field+"必须为非负金额");}}
     private static void validateSignedDecimal(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value){if(blank(value))return;try{decimal(value);}catch(NumberFormatException e){error(errors,n,r,field,value,"INVALID_FORMAT",field+"必须为有效金额");}}
     private static void validateDate(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value){if(blank(value))return;try{parseDate(value);}catch(IllegalArgumentException e){error(errors,n,r,field,value,"INVALID_FORMAT",e.getMessage());}}
-    private static void error(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value,String code,String message){errors.add(new ImportError(n,r.inpatientNo,r.admissionTimes,field,value,code,message));}
+    private static void error(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value,String code,String message){errors.add(new ImportError(n,r.inpatientNo,r.admissionTimes,r.patientName,field,value,code,message));}
     private static boolean blank(String value) { return value == null || value.isBlank(); }
     private static boolean isDischargedArrears(ArrearsImportRow row) {
         return !blank(row.dischargedAt) || "DISCHARGED_UNSETTLED".equals(row.arrearsType)

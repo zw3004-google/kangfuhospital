@@ -59,6 +59,6 @@ public class ArrearsRecordHistoryService {
     }
 
     private static String display(String value) {
-        return value.isBlank() ? "（空）" : value;
+        if (value.isBlank()) return "（空）"; return switch (value) { case "NOT_STARTED" -> "未催缴"; case "NEGOTIATING" -> "协商中"; case "REFUSED" -> "拒绝缴费"; case "LEGAL_ACTION" -> "移交法务发起诉讼"; case "PAID" -> "已缴费"; case "UNPAID" -> "未缴费"; default -> value; };
     }
 }

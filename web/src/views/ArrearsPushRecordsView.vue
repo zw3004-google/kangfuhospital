@@ -35,6 +35,7 @@ interface Attempt {
   attemptedAt: string | null
   recipientName: string | null
   recipientWecomId: string | null
+  retryCount: number
   status: string
   errorCode: string | null
   errorMessage: string | null
@@ -291,12 +292,12 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
       <div class="push-trace-note">所有推送均保留接收人、推送时间、实际内容、发送结果及每次自动重试或人工重发记录。批量重发仅处理当前页明确勾选的失败任务。</div>
     </div>
 
-    <el-dialog v-model="dialog" :title="`发送尝试 · 任务 #${current?.id || ''}`" width="78%" class="mobile-full-dialog">
+    <el-dialog v-model="dialog" :title="`发送尝试 · 任务编号 ${current?.id || ''}`" width="78%" class="mobile-full-dialog">
       <div v-loading="attemptsLoading" class="push-attempt-wrap">
         <el-empty v-if="!attemptsLoading && !attempts.length" description="尚无发送尝试" />
-        <div v-else-if="attempts.length" class="mobile-only mobile-record-list"><article v-for="item in attempts" :key="item.attemptNo" class="mobile-record-card"><header><div><strong>第 {{item.attemptNo}} 次尝试</strong><span>{{fmt(item.attemptedAt||item.scheduledAt)}}</span></div><el-tag :type="statusTagType(item.status)">{{attemptStatusLabel(item.status)}}</el-tag></header><dl><div><dt>触发方式</dt><dd>{{triggerLabel(item.triggerType)}}</dd></div><div><dt>接收人</dt><dd>{{item.recipientName||'—'}}</dd></div></dl><p v-if="item.errorMessage" class="mobile-record-alert">{{item.errorCode||'错误'}}：{{item.errorMessage}}</p></article></div>
+        <div v-else-if="attempts.length" class="mobile-only mobile-record-list"><article v-for="item in attempts" :key="item.attemptNo" class="mobile-record-card"><header><div><strong>第 {{item.attemptNo}} 次尝试</strong><span>{{fmt(item.attemptedAt||item.scheduledAt)}}</span></div><el-tag :type="statusTagType(item.status)">{{attemptStatusLabel(item.status)}}</el-tag></header><dl><div><dt>触发方式</dt><dd>{{triggerLabel(item.triggerType)}}</dd></div><div><dt>接收人</dt><dd>{{item.recipientName||'—'}}</dd></div><div><dt>重试次数</dt><dd>{{item.retryCount}}</dd></div><div class="wide"><dt>发送时间</dt><dd>{{fmt(item.attemptedAt)}}</dd></div></dl><p v-if="item.errorMessage" class="mobile-record-alert">{{item.errorCode||'错误'}}：{{item.errorMessage}}</p></article></div>
         <el-table v-else-if="attempts.length" :data="attempts" class="desktop-only">
-          <el-table-column prop="attemptNo" label="#" width="55" />
+          <el-table-column prop="attemptNo" label="第几次尝试" width="100" />
           <el-table-column label="触发方式" width="110">
             <template #default="scope">{{ triggerLabel(scope.row.triggerType) }}</template>
           </el-table-column>
@@ -305,8 +306,9 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
           </el-table-column>
           <el-table-column prop="recipientName" label="接收人" width="120" />
           <el-table-column prop="recipientWecomId" label="企微 ID" width="140" />
-          <el-table-column label="计划时间" width="180"><template #default="scope">{{ fmt(scope.row.scheduledAt) }}</template></el-table-column>
-          <el-table-column label="尝试时间" width="180"><template #default="scope">{{ fmt(scope.row.attemptedAt) }}</template></el-table-column>
+          <el-table-column label="计划发送时间" width="180"><template #default="scope">{{ fmt(scope.row.scheduledAt) }}</template></el-table-column>
+          <el-table-column label="发送时间" width="180"><template #default="scope">{{ fmt(scope.row.attemptedAt) }}</template></el-table-column>
+          <el-table-column prop="retryCount" label="重试次数" width="90" align="center" />
           <el-table-column prop="errorCode" label="错误码" width="120" />
           <el-table-column prop="errorMessage" label="错误信息" min-width="200" show-overflow-tooltip />
         </el-table>

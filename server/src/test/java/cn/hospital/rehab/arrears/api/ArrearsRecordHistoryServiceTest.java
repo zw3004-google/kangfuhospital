@@ -16,7 +16,7 @@ class ArrearsRecordHistoryServiceTest {
         String after = "{\"arrearsReason\":\"已联系家属\",\"recoveryProgress\":\"NEGOTIATING\",\"paymentStatus\":\"UNPAID\"}";
 
         assertThat(service.describe(before, after))
-                .isEqualTo("欠费原因：暂时困难 → 已联系家属；追缴进度：NOT_STARTED → NEGOTIATING");
+                .isEqualTo("欠费原因：暂时困难 → 已联系家属；追缴进度：未催缴 → 协商中");
     }
 
     @Test

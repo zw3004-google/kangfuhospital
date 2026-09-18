@@ -221,7 +221,7 @@ describe('ArrearsPushRecordsView 阶段5', () => {
     mocks.get.mockImplementation((url: string) => Promise.resolve({
       data: { data: url.endsWith('/attempts') ? [{
         attemptNo: 1, triggerType: 'MANUAL', scheduledAt: '2026-09-02T08:00:00+08:00',
-        attemptedAt: '2026-09-02T08:01:00+08:00', recipientName: '张主任', recipientWecomId: 'zhang',
+        attemptedAt: '2026-09-02T08:01:00+08:00', recipientName: '张主任', recipientWecomId: 'zhang', retryCount: 0,
         status: 'FAILED', errorCode: 'TIMEOUT', errorMessage: '企微接口超时',
       }] : page },
     }))
@@ -233,6 +233,9 @@ describe('ArrearsPushRecordsView 阶段5', () => {
     expect(mocks.get).toHaveBeenLastCalledWith('/arrears/push-records/101/attempts')
     expect(document.body.textContent).toContain('人工重发')
     expect(document.body.textContent).toContain('失败')
+    expect(document.body.textContent).toContain('第 1 次尝试')
+    expect(document.body.textContent).toContain('重试次数')
+    expect(document.body.textContent).toContain('发送时间')
     expect(document.body.textContent).toContain('TIMEOUT')
     expect(document.body.textContent).toContain('企微接口超时')
     wrapper.unmount()

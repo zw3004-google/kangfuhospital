@@ -79,7 +79,7 @@ public class ArrearsReportController {
                         (CAST(:doctorUserId AS BIGINT) IS NOT NULL AND e.doctor_user_id=:doctorUserId))
               GROUP BY COALESCE(d.department_name,e.ward_name,'未分配'),
                        COALESCE(d.department_code,e.ward_name,'')
-              ORDER BY amount DESC,COALESCE(d.department_code,e.ward_name,'')
+              ORDER BY amount ASC,COALESCE(d.department_code,e.ward_name,'')
                 """).param("batchId", selectedBatch.id())
                 .param("allDepartments", scope.allDepartments())
                 .param("departmentIds", departmentIds)
@@ -89,7 +89,7 @@ public class ArrearsReportController {
 
         var patientTop10 = jdbc.sql("""
                 SELECT ROW_NUMBER() OVER (
-                           ORDER BY a.arrears_amount DESC,
+                           ORDER BY a.arrears_amount ASC,
                                     COALESCE(d.department_code,e.ward_name,''),
                                     e.inpatient_no,e.admission_times
                        ) rank,
@@ -105,7 +105,7 @@ public class ArrearsReportController {
                    AND a.in_arrears=true AND a.payment_status='UNPAID'
                    AND (:allDepartments=TRUE OR e.department_id IN (:departmentIds) OR
                         (CAST(:doctorUserId AS BIGINT) IS NOT NULL AND e.doctor_user_id=:doctorUserId))
-              ORDER BY a.arrears_amount DESC,
+              ORDER BY a.arrears_amount ASC,
                        COALESCE(d.department_code,e.ward_name,''),
                        e.inpatient_no,e.admission_times
                  LIMIT 10

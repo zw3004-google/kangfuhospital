@@ -30,11 +30,11 @@ public class FailedImportBatchRecorder {
                 .param("total",total).param("failures",errors.size()).param("message","导入校验失败，共 "+errors.size()+" 项错误")
                 .query(Long.class).single();
         for (ImportError error : errors) jdbc.sql("""
-                INSERT INTO import_batch_error(import_batch_id,row_number,inpatient_no,admission_times,field_name,
+                INSERT INTO import_batch_error(import_batch_id,row_number,inpatient_no,admission_times,patient_name,field_name,
                 original_value,error_code,error_message)
-                VALUES (:batch,:row,:no,:times,:field,:value,:code,:message)
+                VALUES (:batch,:row,:no,:times,:patientName,:field,:value,:code,:message)
                 """).param("batch",id).param("row",error.rowNumber()).param("no",error.inpatientNo())
-                .param("times",error.admissionTimes()).param("field",error.fieldName()).param("value",error.originalValue())
+                .param("times",error.admissionTimes()).param("patientName",error.patientName()).param("field",error.fieldName()).param("value",error.originalValue())
                 .param("code",error.errorCode()).param("message",error.message()).update();
         return batchNo;
     }
@@ -55,11 +55,11 @@ public class FailedImportBatchRecorder {
                 .param("transactionCode",transactionCode).param("triggerType",triggerType).param("startedBy",startedBy)
                 .query(Long.class).single();
         for (ImportError error : errors) jdbc.sql("""
-                INSERT INTO import_batch_error(import_batch_id,row_number,inpatient_no,admission_times,field_name,
+                INSERT INTO import_batch_error(import_batch_id,row_number,inpatient_no,admission_times,patient_name,field_name,
                 original_value,error_code,error_message)
-                VALUES (:batch,:row,:no,:times,:field,:value,:code,:message)
+                VALUES (:batch,:row,:no,:times,:patientName,:field,:value,:code,:message)
                 """).param("batch",id).param("row",error.rowNumber()).param("no",error.inpatientNo())
-                .param("times",error.admissionTimes()).param("field",error.fieldName()).param("value",error.originalValue())
+                .param("times",error.admissionTimes()).param("patientName",error.patientName()).param("field",error.fieldName()).param("value",error.originalValue())
                 .param("code",error.errorCode()).param("message",error.message()).update();
         return batchNo;
     }

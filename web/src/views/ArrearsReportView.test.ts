@@ -50,13 +50,13 @@ describe('ArrearsReportView 阶段2', () => {
     expect(wrapper.text()).toContain('ARR-20260901080000')
     expect(wrapper.text()).toContain('更新完成')
     expect(wrapper.text()).toContain('325,000.50 元')
-    expect(wrapper.text()).toContain('全院科室欠费 Top3')
+    expect(wrapper.text()).toContain('全院科室欠费金额（由低到高）Top3')
     expect(wrapper.findAll('.report-top-card')).toHaveLength(3)
     expect(wrapper.findAll('.department-rank-row')).toHaveLength(3)
     expect(wrapper.text()).toContain('患者欠费金额 Top10')
     expect(wrapper.text()).toContain('ZY-1001')
     expect(wrapper.text()).toContain('协商中')
-    expect(wrapper.find('.department-rank-track i').attributes('style')).toContain('width: 100%')
+    expect(wrapper.findAll('.department-rank-track i').at(-1)!.attributes('style')).toContain('width: 100%')
   })
 
   it('没有汇总完成批次时展示批次空状态', async () => {

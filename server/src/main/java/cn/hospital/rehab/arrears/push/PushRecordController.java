@@ -93,7 +93,7 @@ public class PushRecordController {
                 .query((row, number) -> new Attempt(row.getInt("attempt_no"), row.getString("trigger_type"),
                         row.getObject("scheduled_at", OffsetDateTime.class),
                         row.getObject("attempted_at", OffsetDateTime.class), row.getString("recipient_name"),
-                        row.getString("recipient_wecom_id"), row.getString("status"),
+                        row.getString("recipient_wecom_id"), row.getInt("retry_count"), row.getString("status"),
                         row.getString("error_code"), row.getString("error_message"))).list());
     }
 
@@ -260,7 +260,7 @@ public class PushRecordController {
 
     public record Attempt(int attemptNo, String triggerType, OffsetDateTime scheduledAt,
                           OffsetDateTime attemptedAt, String recipientName, String recipientWecomId,
-                          String status, String errorCode, String errorMessage) {}
+                          int retryCount, String status, String errorCode, String errorMessage) {}
 
     public record RetryBatchRequest(
             @NotBlank @Pattern(regexp = "(?i)ARREARS|DISCHARGE") String businessType,

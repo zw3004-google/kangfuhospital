@@ -34,11 +34,11 @@ public class ImportBatchController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','OPERATIONS','FINANCE')")
     ApiResponse<List<ImportError>> errors(@PathVariable String batchNo){
         return ApiResponse.ok(jdbc.sql("""
-                SELECT e.row_number,e.inpatient_no,e.admission_times,e.field_name,e.original_value,e.error_code,e.error_message
+                SELECT e.row_number,e.inpatient_no,e.admission_times,e.patient_name,e.field_name,e.original_value,e.error_code,e.error_message
                 FROM import_batch_error e JOIN import_batch b ON b.id=e.import_batch_id
                 WHERE b.batch_no=:batchNo ORDER BY e.row_number,e.id
                 """).param("batchNo",batchNo).query((r,n)->new ImportError(r.getInt("row_number"),r.getString("inpatient_no"),
-                r.getObject("admission_times",Integer.class),r.getString("field_name"),r.getString("original_value"),
+                r.getObject("admission_times",Integer.class),r.getString("patient_name"),r.getString("field_name"),r.getString("original_value"),
                 r.getString("error_code"),r.getString("error_message"))).list());
     }
     public record Batch(String batchNo,String businessType,String sourceType,String transactionCode,String triggerType,String filename,String status,int total,int success,int failure,

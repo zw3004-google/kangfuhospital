@@ -31,10 +31,10 @@ public class PushTaskDispatcher {
     private void send(Task task){
         int cycleAttempt=task.retry()+1;int attempt=task.attemptNo();WeComClient.SendResult result=weCom.send(task.userId(),task.content());
         jdbc.sql("""
-                INSERT INTO push_attempt(task_id,attempt_no,trigger_type,scheduled_at,recipient_wecom_id,recipient_name,status,error_code,error_message)
-                VALUES (:task,:attempt,:trigger,:scheduled,:recipientId,:recipientName,:status,:errorCode,:error)
+                INSERT INTO push_attempt(task_id,attempt_no,trigger_type,scheduled_at,recipient_wecom_id,recipient_name,retry_count,status,error_code,error_message)
+                VALUES (:task,:attempt,:trigger,:scheduled,:recipientId,:recipientName,:retry,:status,:errorCode,:error)
                 """).param("task",task.id()).param("attempt",attempt).param("trigger",task.triggerType())
-                .param("scheduled",task.scheduledAt()).param("recipientId",task.userId()).param("recipientName",task.recipientName())
+                .param("scheduled",task.scheduledAt()).param("recipientId",task.userId()).param("recipientName",task.recipientName()).param("retry",task.retry())
                 .param("status",result.success()?"SENT":"FAILED").param("errorCode",result.errorCode()).param("error",result.error()).update();
         if(result.success())jdbc.sql("UPDATE push_task SET status='SENT',sent_at=CURRENT_TIMESTAMP,retry_count=:retry,last_error=NULL,next_trigger_type='AUTOMATIC',updated_at=CURRENT_TIMESTAMP WHERE id=:id").param("retry",cycleAttempt).param("id",task.id()).update();
         else if(cycleAttempt<4)jdbc.sql("UPDATE push_task SET status='RETRYING',retry_count=:retry,scheduled_at=CURRENT_TIMESTAMP + CASE :retry WHEN 1 THEN INTERVAL '1 minute' WHEN 2 THEN INTERVAL '5 minutes' ELSE INTERVAL '15 minutes' END,last_error=:error,next_trigger_type='AUTOMATIC',updated_at=CURRENT_TIMESTAMP WHERE id=:id").param("retry",cycleAttempt).param("error",result.error()).param("id",task.id()).update();
