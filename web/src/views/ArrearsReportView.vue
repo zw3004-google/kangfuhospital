@@ -18,14 +18,14 @@ const noticeLoading = ref(false)
 const notice = ref<NoticePreview | null>(null)
 const exporting = ref(false)
 
-const ascendingByAmount = <T extends { amount?: number; arrearsAmount?: number }>(items: T[]) => [...items].sort((left, right) => Number(left.amount ?? left.arrearsAmount ?? 0) - Number(right.amount ?? right.arrearsAmount ?? 0))
+const descendingByAmount = <T extends { amount?: number; arrearsAmount?: number }>(items: T[]) => [...items].sort((left, right) => Number(right.amount ?? right.arrearsAmount ?? 0) - Number(left.amount ?? left.arrearsAmount ?? 0))
 
 const load = async () => {
   loading.value = true
   error.value = ''
   try {
     const report = (await http.get<ApiResponse<ReportData>>('/arrears/report')).data.data
-    data.value = { ...report, ranking: ascendingByAmount(report.ranking), top3: ascendingByAmount(report.top3), patientTop10: ascendingByAmount(report.patientTop10) }
+    data.value = { ...report, ranking: descendingByAmount(report.ranking), top3: descendingByAmount(report.top3), patientTop10: descendingByAmount(report.patientTop10) }
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '加载失败'
     ElMessage.error(error.value)
@@ -106,7 +106,6 @@ onMounted(load)
       <div class="report-batch-bar">
         <div><span>数据范围</span><strong>{{ data.scopeLabel }}</strong></div>
         <div><span>数据截至时间</span><strong>{{ formatTime(data.latestSuccessfulBatch.dataAsOf) }}</strong></div>
-        <div><span>最新成功批次</span><strong>{{ data.latestSuccessfulBatch.batchNo }}</strong></div>
         <el-tag type="success" effect="light">{{ summaryStatus(data.latestSuccessfulBatch.summaryStatus) }}</el-tag>
       </div>
 
@@ -117,7 +116,7 @@ onMounted(load)
 
       <el-empty v-if="!data.ranking.length" description="当前数据范围内暂无未缴费欠费患者" />
       <template v-else>
-        <h3 class="section-title">{{ scopeHeading }}欠费金额（由低到高）Top3</h3>
+        <h3 class="section-title">{{ scopeHeading }}欠费金额（由高到低）Top3</h3>
         <div :class="['report-top3', `count-${Math.min(data.top3.length, 3)}`]">
           <article v-for="(item, index) in data.top3" :key="item.departmentName" :class="`report-top-card top-${index + 1}`">
             <span class="top-rank">TOP{{ index + 1 }}</span><h4>{{ item.departmentName }}</h4>
@@ -125,7 +124,7 @@ onMounted(load)
           </article>
         </div>
 
-        <h3 class="section-title">{{ scopeHeading }}欠费金额排行（由低到高）</h3>
+        <h3 class="section-title">{{ scopeHeading }}欠费金额排行（由高到低）</h3>
         <div class="department-ranking">
           <div v-for="(item, index) in data.ranking" :key="item.departmentName" class="department-rank-row">
             <span class="department-rank-index">{{ index + 1 }}</span><span class="department-rank-name" :title="item.departmentName">{{ item.departmentName }}</span>
@@ -134,7 +133,7 @@ onMounted(load)
           </div>
         </div>
 
-        <h3 class="section-title">患者欠费金额 Top10（由低到高）</h3>
+        <h3 class="section-title">患者欠费金额 Top10（由高到低）</h3>
         <div class="mobile-only mobile-record-list report-patient-mobile-list"><article v-for="item in data.patientTop10" :key="`${item.inpatientNo}-${item.admissionTimes}`" class="mobile-record-card"><header><div><strong>第 {{item.rank}} 名 · {{item.patientName}}</strong><span>{{item.inpatientNo}} · 第{{item.admissionTimes}}次住院</span></div></header><div class="mobile-record-primary"><span>欠费金额</span><strong class="report-money">{{formatMoney(item.arrearsAmount)}}</strong></div><dl><div><dt>住院病区</dt><dd>{{item.departmentName}}</dd></div><div><dt>主管医生</dt><dd>{{item.doctorName||'—'}}</dd></div><div><dt>欠费类型</dt><dd>{{arrearsTypeLabel(item.arrearsType)}}</dd></div><div><dt>追缴进度</dt><dd>{{progressLabel(item.recoveryProgress)}}</dd></div></dl></article></div>
         <el-table :data="data.patientTop10" stripe class="report-patient-table desktop-only" empty-text="暂无患者数据">
           <el-table-column prop="rank" label="排名" width="70"><template #default="scope"><strong :class="{ 'top-patient-rank': scope.row.rank <= 3 }">{{ scope.row.rank }}</strong></template></el-table-column>

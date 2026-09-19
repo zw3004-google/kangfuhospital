@@ -8,5 +8,5 @@ import java.util.List;
 public record UserSummary(long id, String loginName, String displayName, String employeeNo, String wecomUserId,
                           Long departmentId, String departmentName, boolean enabled,
                           boolean mustChangePassword, OffsetDateTime lockedUntil,
-                          List<Role> roles, OffsetDateTime createdAt) {
+                          List<Role> roles, List<String> departmentAccessNames, OffsetDateTime createdAt) {
 }

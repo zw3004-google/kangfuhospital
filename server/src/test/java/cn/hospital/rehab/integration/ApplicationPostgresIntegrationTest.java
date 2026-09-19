@@ -168,6 +168,28 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     @Transactional
+    void arrearsHisSyncDoesNotOverwriteWardOwnedByPatientInfoSync() {
+        var patientRow = dischargeRow("TEST-0001");
+        patientRow.patientName = "病区归属测试患者";
+        patientRow.wardName = "测试康复一科";
+        dischargeImportService.importApiRows(List.of(patientRow), "BDKF-ZYHZXX-xcx", "AUTO", null);
+
+        var arrearsRow = arrearsRow("TEST-0001");
+        arrearsRow.patientName = "病区归属测试患者";
+        arrearsRow.wardName = "测试康复二科";
+        arrearsRow.interfaceArrearsAmount = "100";
+        arrearsImportService.importApiRows(List.of(arrearsRow), "BJKF_ZYCX", "MANUAL", null);
+
+        String ward = jdbc.sql("""
+                SELECT d.department_name FROM patient_encounter e
+                JOIN sys_department d ON d.id=e.department_id
+                WHERE e.inpatient_no='TEST-0001' AND e.admission_times=1
+                """).query(String.class).single();
+        assertThat(ward).isEqualTo("测试康复一科");
+    }
+
+    @Test
+    @Transactional
     void dischargedExcelArrearsUsesSourceDepositAndArrearsAmountsWithoutFeeCoefficient() {
         ArrearsImportRow row = arrearsRow("EXCEL-DISCHARGED-SOURCE-001");
         row.feeType = "NO_COEFFICIENT_REQUIRED";

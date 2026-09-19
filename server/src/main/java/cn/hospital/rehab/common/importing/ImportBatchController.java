@@ -39,7 +39,18 @@ public class ImportBatchController {
                 WHERE b.batch_no=:batchNo ORDER BY e.row_number,e.id
                 """).param("batchNo",batchNo).query((r,n)->new ImportError(r.getInt("row_number"),r.getString("inpatient_no"),
                 r.getObject("admission_times",Integer.class),r.getString("patient_name"),r.getString("field_name"),r.getString("original_value"),
-                r.getString("error_code"),r.getString("error_message"))).list());
+                r.getString("error_code"),readableError(r.getString("error_code"),r.getString("field_name"),r.getString("original_value"),r.getString("error_message")))).list());
+    }
+    private static String readableError(String code, String field, String originalValue, String fallback) {
+        String name = field == null || field.isBlank() ? "该字段" : "“" + field + "”";
+        String value = originalValue == null || originalValue.isBlank() ? "" : "，当前值为“" + originalValue + "”";
+        return switch (code == null ? "" : code) {
+            case "MISSING_REQUIRED" -> name + "不能为空，请补充后重新导入。";
+            case "INVALID_FORMAT" -> name + "格式不正确" + value + "，请按模板要求填写。";
+            case "DEPARTMENT_NOT_FOUND" -> name + "中的科室“" + (originalValue == null || originalValue.isBlank() ? "空值" : originalValue) + "”未在系统启用科室中匹配到，请先维护科室信息。";
+            case "DUPLICATE_KEY_IN_FILE" -> "住院号和住院次数在本次导入文件中重复，请仅保留一条患者记录。";
+            default -> fallback == null || fallback.isBlank() ? "该记录校验未通过，请核对填写内容后重新导入。" : fallback;
+        };
     }
     public record Batch(String batchNo,String businessType,String sourceType,String transactionCode,String triggerType,String filename,String status,int total,int success,int failure,
                         int added,int overwritten,int skipped,String summaryStatus,OffsetDateTime startedAt,

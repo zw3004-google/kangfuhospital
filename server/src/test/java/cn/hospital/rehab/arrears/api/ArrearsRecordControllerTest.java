@@ -65,7 +65,7 @@ class ArrearsRecordControllerTest {
         var authentication = mock(Authentication.class);
         var scope = new DataScope(false, Set.of(12L), 34L);
         var item = new ArrearsRecordHistory(9, "财务员", OffsetDateTime.parse("2026-09-01T09:00:00+08:00"),
-                "UPDATE", "{}", "{}", "更新欠费记录");
+                "UPDATE", "{}", "{}", "更新欠费记录", List.of("更新欠费记录"));
         when(scopes.resolve(authentication)).thenReturn(scope);
         when(historyService.list(88)).thenReturn(List.of(item));
         var controller = new ArrearsRecordController(repository, scopes, mock(AuditLogService.class), historyService, mock(ArrearsExportService.class));

@@ -1,6 +1,7 @@
 package cn.hospital.rehab.arrears.api;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public record ArrearsRecordHistory(
         long id,
@@ -9,4 +10,5 @@ public record ArrearsRecordHistory(
         String actionType,
         String beforeData,
         String afterData,
-        String changeDescription) {}
+        String changeDescription,
+        List<String> changeLines) {}

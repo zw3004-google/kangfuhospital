@@ -121,13 +121,14 @@ public class ArrearsImportService {
     }
 
     private long upsertEncounter(ArrearsImportRow row, DoctorMatch doctor) {
+        // 病区与科室归属以预出院患者同步为准；欠费接口只在首次建档时提供兜底值。
         Long departmentId = jdbc.sql("SELECT id FROM sys_department WHERE department_name=:name AND enabled=true ORDER BY id LIMIT 1")
                 .param("name", row.wardName).query(Long.class).optional().orElse(null);
         return jdbc.sql("""
                 INSERT INTO patient_encounter(inpatient_no,admission_times,patient_name,department_id,ward_name,fee_type,doctor_name_source,doctor_employee_no,doctor_user_id,doctor_match_status,admitted_at,discharged_at)
                 VALUES (:no,:times,:name,:department,:ward,:fee,:doctorName,:doctorEmployeeNo,:doctorId,:doctorStatus,:admitted,:discharged)
                 ON CONFLICT (inpatient_no,admission_times) DO UPDATE SET patient_name=EXCLUDED.patient_name,
-                  department_id=COALESCE(EXCLUDED.department_id,patient_encounter.department_id),ward_name=COALESCE(EXCLUDED.ward_name,patient_encounter.ward_name),fee_type=COALESCE(EXCLUDED.fee_type,patient_encounter.fee_type),
+                  fee_type=COALESCE(EXCLUDED.fee_type,patient_encounter.fee_type),
                   doctor_name_source=COALESCE(EXCLUDED.doctor_name_source,patient_encounter.doctor_name_source),doctor_employee_no=COALESCE(EXCLUDED.doctor_employee_no,patient_encounter.doctor_employee_no),doctor_user_id=COALESCE(EXCLUDED.doctor_user_id,patient_encounter.doctor_user_id),
                   doctor_match_status=CASE WHEN EXCLUDED.doctor_employee_no IS NULL THEN patient_encounter.doctor_match_status ELSE EXCLUDED.doctor_match_status END,admitted_at=COALESCE(EXCLUDED.admitted_at,patient_encounter.admitted_at),discharged_at=COALESCE(EXCLUDED.discharged_at,patient_encounter.discharged_at),
                   source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP RETURNING id

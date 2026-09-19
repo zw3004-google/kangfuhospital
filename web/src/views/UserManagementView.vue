@@ -5,7 +5,7 @@ import { http, type ApiResponse } from '../api/http'
 
 interface Department { id: number; departmentCode: string; departmentName: string; enabled: boolean }
 interface Role { id: number; roleCode: string; roleName: string; builtIn: boolean; enabled: boolean }
-interface User { id: number; loginName: string; displayName: string; employeeNo: string; wecomUserId: string; departmentId: number; departmentName: string; enabled: boolean; mustChangePassword: boolean; roles: Role[] }
+interface User { id: number; loginName: string; displayName: string; employeeNo: string; wecomUserId: string; departmentId: number; departmentName: string; enabled: boolean; mustChangePassword: boolean; roles: Role[]; departmentAccessNames?: string[] }
 interface PageResult<T> { items: T[]; total: number; page: number; pageSize: number }
 interface ImportFeedback { filename: string; total: number; imported: number; failed: number }
 
@@ -184,7 +184,7 @@ function openDepartmentAccess(user: User) {
   http.get<ApiResponse<number[]>>(`/system/users/${user.id}/departments`).then(response => { departmentAccessForm.departmentIds = response.data.data; departmentAccessDialog.value = true }).catch(error => ElMessage.error(messageOf(error)))
 }
 function toggleDepartmentAccess() { const ids = departments.value.filter(item => item.enabled).map(item => item.id); const selected = new Set(departmentAccessForm.departmentIds); const all = ids.length > 0 && ids.every(id => selected.has(id)); ids.forEach(id => all ? selected.delete(id) : selected.add(id)); departmentAccessForm.departmentIds = [...selected] }
-async function saveDepartmentAccess() { saving.value = true; try { await http.put(`/system/users/${departmentAccessForm.userId}/departments`, { departmentIds: departmentAccessForm.departmentIds }); ElMessage.success('可访问科室已保存'); departmentAccessDialog.value = false } catch (error) { ElMessage.error(messageOf(error)) } finally { saving.value = false } }
+async function saveDepartmentAccess() { saving.value = true; try { const departmentNames = departmentAccessForm.departmentIds.map(id => departments.value.find(item => item.id === id)?.departmentName).filter((name): name is string => !!name); await http.put(`/system/users/${departmentAccessForm.userId}/departments`, { departmentIds: departmentAccessForm.departmentIds }); await loadUsers(); users.value = users.value.map(user => user.id === departmentAccessForm.userId ? { ...user, departmentAccessNames: departmentNames } : user); ElMessage.success('可访问科室已保存'); departmentAccessDialog.value = false } catch (error) { ElMessage.error(messageOf(error)) } finally { saving.value = false } }
 async function download(path: string, filename: string) {
   try {
     const response = await http.get(path, { responseType: 'blob' })
@@ -215,6 +215,10 @@ function pickFile(id: string) {
   document.getElementById(id)?.click()
 }
 
+const accessDepartments = (user: User) => user.departmentAccessNames || []
+const accessDepartmentPreview = (user: User) => accessDepartments(user).slice(0, 3).join('、') || '未分配'
+const accessDepartmentFull = (user: User) => accessDepartments(user).join('、')
+
 function messageOf(error: unknown) { return error instanceof Error ? error.message : '操作失败' }
 async function initialize() { try { await Promise.all([loadReferences(), loadUsers(), loadDepartments()]) } catch (error) { ElMessage.error(messageOf(error)) } }
 onMounted(initialize)
@@ -241,7 +245,7 @@ onMounted(initialize)
           <el-button type="primary" plain @click="pickFile('user-import-file')">用户导入</el-button><el-button :disabled="!selectedUsers.length" @click="batchUsers('enable')">批量启用</el-button><el-button :disabled="!selectedUsers.length" @click="batchUsers('disable')">批量停用</el-button><el-button :disabled="!selectedUsers.length" type="danger" @click="batchUsers('delete')">批量删除</el-button>
           <input id="user-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/users/import', $event, initialize)" /><el-alert v-if="userImportFeedback" type="success" :closable="false" class="import-feedback" :title="`用户导入成功：${userImportFeedback.imported}/${userImportFeedback.total} 条`" :description="`文件：${userImportFeedback.filename}；成功 ${userImportFeedback.imported} 条，失败 ${userImportFeedback.failed} 条。`" />
         </div>
-        <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!users.length" description="暂无用户"/><article v-for="user in users" :key="user.id" class="mobile-record-card admin-user-card"><header><div><strong>{{user.displayName}}</strong><span>{{user.loginName}} · {{user.employeeNo}}</span></div><el-tag :type="user.enabled?'success':'info'">{{user.enabled?'启用':'停用'}}</el-tag></header><dl><div><dt>所属科室</dt><dd>{{user.departmentName||'—'}}</dd></div><div><dt>企微 ID</dt><dd>{{user.wecomUserId||'—'}}</dd></div><div class="admin-card-wide"><dt>角色</dt><dd><el-tag v-for="role in user.roles" :key="role.id" size="small" class="role-tag">{{role.roleName}}</el-tag><span v-if="!user.roles.length">未分配</span></dd></div></dl><footer><el-button link type="primary" @click="editUser(user)">编辑</el-button><el-button link type="primary" @click="openRoles(user)">分配角色</el-button><el-button link type="primary" @click="openDepartmentAccess(user)">分配科室</el-button><el-button link @click="resetPassword(user)">重置密码</el-button><el-button link :type="user.enabled?'danger':'primary'" @click="toggleUser(user)">{{user.enabled?'停用':'启用'}}</el-button></footer></article></div>
+        <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!users.length" description="暂无用户"/><article v-for="user in users" :key="user.id" class="mobile-record-card admin-user-card"><header><div><strong>{{user.displayName}}</strong><span>{{user.loginName}} · {{user.employeeNo}}</span></div><el-tag :type="user.enabled?'success':'info'">{{user.enabled?'启用':'停用'}}</el-tag></header><dl><div><dt>所属科室</dt><dd>{{user.departmentName||'—'}}</dd></div><div><dt>企微 ID</dt><dd>{{user.wecomUserId||'—'}}</dd></div><div class="admin-card-wide"><dt>角色</dt><dd><el-tag v-for="role in user.roles" :key="role.id" size="small" class="role-tag">{{role.roleName}}</el-tag><span v-if="!user.roles.length">未分配</span></dd></div><div class="admin-card-wide"><dt>科室权限</dt><dd>{{accessDepartmentPreview(user)}}<el-tooltip v-if="accessDepartments(user).length>3" :content="accessDepartmentFull(user)" placement="top"><span class="department-access-more">...</span></el-tooltip></dd></div></dl><footer><el-button link type="primary" @click="editUser(user)">编辑</el-button><el-button link type="primary" @click="openRoles(user)">分配角色</el-button><el-button link type="primary" @click="openDepartmentAccess(user)">分配科室</el-button><el-button link @click="resetPassword(user)">重置密码</el-button><el-button link :type="user.enabled?'danger':'primary'" @click="toggleUser(user)">{{user.enabled?'停用':'启用'}}</el-button></footer></article></div>
         <el-table v-loading="loading" :data="users" stripe class="desktop-only" @selection-change="selectedUsers=$event"><el-table-column type="selection" width="48" />
           <el-table-column prop="displayName" label="姓名" width="120" />
           <el-table-column prop="employeeNo" label="工号" min-width="130" />
@@ -250,6 +254,9 @@ onMounted(initialize)
           <el-table-column prop="departmentName" label="所属科室" min-width="140" />
           <el-table-column label="角色" min-width="250">
             <template #default="scope"><el-tag v-for="role in scope.row.roles" :key="role.id" size="small" class="role-tag">{{ role.roleName }}</el-tag><span v-if="!scope.row.roles.length" class="muted">未分配</span></template>
+          </el-table-column>
+          <el-table-column label="科室权限" min-width="220">
+            <template #default="scope"><span>{{accessDepartmentPreview(scope.row)}}</span><el-tooltip v-if="accessDepartments(scope.row).length>3" :content="accessDepartmentFull(scope.row)" placement="top"><span class="department-access-more">...</span></el-tooltip></template>
           </el-table-column>
           <el-table-column label="状态" width="100"><template #default="scope"><el-tag :type="scope.row.enabled?'success':'info'">{{ scope.row.enabled?'启用':'停用' }}</el-tag></template></el-table-column>
           <el-table-column label="操作" width="310" fixed="right"><template #default="scope">

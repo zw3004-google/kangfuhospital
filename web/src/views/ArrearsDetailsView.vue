@@ -4,7 +4,7 @@ import { importFailureFeedback,type ImportFeedback,type ImportResult } from '../
 interface Row{id:number;inpatientNo:string;admissionTimes:number;patientName:string;departmentName:string;wardName:string|null;feeType:string;arrearsType:string;doctorName:string;doctorEmployeeNo:string|null;admittedAt:string|null;dischargedAt:string|null;totalCost:number;prepaidAmount:number;medicalInsurancePaid:number;personalAccountPaid:number;finalRequiredDeposit:number;arrearsAmount:number;inArrears:boolean;paymentStatus:string;arrearsReason:string|null;recoveryProgress:string;previousRecoveryProgress:string;lastOperatedBy:string|null;sourceUpdatedAt:string|null;updatedAt:string|null} interface Page<T>{items:T[];total:number;page:number;pageSize:number}
 interface FilterOptions{departments:{id:number;name:string}[];feeTypes:string[];arrearsTypes:string[]}
 interface Summary{totalPeople:number;inpatientPeople:number;dischargedUnsettledPeople:number;dischargedSettledPeople:number;totalAmount:number;uncollectedPeople:number;legalPeople:number;sourceUpdatedAt:string|null}
-interface HistoryItem{id:number;operatorName:string;operatedAt:string;actionType:string;beforeData:string;afterData:string;changeDescription:string}
+interface HistoryItem{id:number;operatorName:string;operatedAt:string;actionType:string;beforeData:string;afterData:string;changeDescription:string;changeLines?:string[]}
 interface SyncResult{batchNo:string;total:number;success:number;failure:number;added:number;overwritten:number;skipped:number}
 const progressOptions=[['NOT_STARTED','未催缴'],['NEGOTIATING','协商中'],['REFUSED','拒绝缴费'],['LEGAL_ACTION','移交法务发起诉讼'],['PAID','已缴费']] as const
 const progressLabel=(value:string)=>progressOptions.find(([code])=>code===value)?.[1]||value
@@ -27,6 +27,7 @@ const upload=async(file:File)=>{if(!/\.xlsx$/i.test(file.name)){ElMessage.error(
 const syncHis=async(type:'INPATIENT_ARREARS'|'DISCHARGED_ARREARS',label:string)=>{syncing.value=type;importFeedback.value=null;try{const result=(await http.post<ApiResponse<SyncResult>>(`/integration/his-sync/${type}/trigger`,undefined,{timeout:120_000})).data.data;importFeedback.value={...result,status:'success',message:`${label}同步完成`,remainingErrors:0};ElMessage.success(`${label}同步完成`);page.value=1;await loadFilterOptions();await loadAll()}catch(e){importFeedback.value=importFailureFeedback(e,`${label}同步失败`);ElMessage.error(importFeedback.value.message)}finally{syncing.value=''}}
 const openImportRecords=()=>router.push('/arrears/import-batches')
 const loadHistory=async(id:number)=>{historyLoading.value=true;try{historyItems.value=(await http.get<ApiResponse<HistoryItem[]>>(`/arrears/records/${id}/history`)).data.data}catch(e){historyItems.value=[];ElMessage.error(e instanceof Error?e.message:'操作历史加载失败')}finally{historyLoading.value=false}}
+const historyLines=(item:HistoryItem)=>item.changeLines?.length?item.changeLines:item.changeDescription.replace(/\\n/g,'\n').split(/\r?\n/).filter(Boolean)
 const edit=(row:Row)=>{current.value=row;form.paymentStatus=row.paymentStatus;form.arrearsReason=row.arrearsReason||'';form.recoveryProgress=row.recoveryProgress||'NOT_STARTED';const draft=loadSessionDraft<typeof form>(`arrears:${row.id}`);if(draft)Object.assign(form,draft);historyItems.value=[];dialog.value=true;loadHistory(row.id)}
 const save=async()=>{if(!current.value)return;saving.value=true;try{form.arrearsReason=form.arrearsReason.trim();form.paymentStatus=form.recoveryProgress==='PAID'?'PAID':'UNPAID';await http.put(`/arrears/records/${current.value.id}`,{...form,expectedUpdatedAt:current.value.updatedAt});clearSessionDraft(`arrears:${current.value.id}`);ElMessage.success('已保存');await loadAll();await loadHistory(current.value.id);dialog.value=false}catch(e){ElMessage.error(e instanceof Error?e.message:'保存失败')}finally{saving.value=false}}
 const togglePaid=async(row:Row)=>{const paid=row.paymentStatus==='PAID',action=paid?'恢复未缴费':'标记缴费';try{await ElMessageBox.confirm(`确认将“${row.patientName}”（欠费 ${money(row.arrearsAmount)} 元）${action}？`,`${action}确认`,{type:'warning',confirmButtonText:'确认',cancelButtonText:'取消'})}catch{return}try{await http.put(`/arrears/records/${row.id}`,{paymentStatus:paid?'UNPAID':'PAID',arrearsReason:row.arrearsReason,recoveryProgress:paid?null:'PAID',expectedUpdatedAt:row.updatedAt});ElMessage.success(`已${action}`);await loadAll()}catch(e){ElMessage.error(e instanceof Error?e.message:'操作失败')}}
@@ -184,7 +185,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <span class="money-cell arrears-money">{{money(s.row.arrearsAmount)}}</span>
 </template>
 </el-table-column>
-<el-table-column prop="arrearsReason" label="欠费原因" min-width="180" show-overflow-tooltip>
+<el-table-column prop="arrearsReason" label="情况说明" min-width="180" show-overflow-tooltip>
 <template #default="s">{{s.row.arrearsReason||'—'}}</template>
 </el-table-column>
 <el-table-column label="追缴进度" width="160">
@@ -218,7 +219,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <el-descriptions-item label="欠费金额"><span class="arrears-money">{{money(current.arrearsAmount)}} 元</span></el-descriptions-item>
 </el-descriptions>
 <el-form label-width="90px">
-<el-form-item label="欠费原因">
+<el-form-item label="情况说明">
 <el-input v-model="form.arrearsReason" type="textarea" :rows="3" maxlength="500" show-word-limit/>
 </el-form-item>
 <el-form-item label="追缴进度">
@@ -232,7 +233,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <el-empty v-if="!historyLoading&&!historyItems.length" description="暂无操作历史" :image-size="60"/>
 <el-timeline v-else>
 <el-timeline-item v-for="item in historyItems" :key="item.id" :timestamp="time(item.operatedAt)" placement="top">
-<strong>{{item.operatorName||'system'}}</strong><p>{{item.changeDescription}}</p>
+<strong>{{item.operatorName||'system'}}</strong><p class="history-change-description"><span v-for="(line,index) in historyLines(item)" :key="index">{{line}}</span></p>
 </el-timeline-item>
 </el-timeline>
 </div>

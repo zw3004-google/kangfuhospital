@@ -131,10 +131,16 @@ public class UserRepository {
                 JOIN sys_user_role ur ON ur.role_id=r.id WHERE ur.user_id=:id ORDER BY r.id
                 """).param("id", id).query((roleRs, roleRow) -> new Role(roleRs.getLong("id"), roleRs.getString("role_code"),
                 roleRs.getString("role_name"), roleRs.getBoolean("built_in"), roleRs.getBoolean("enabled"))).list();
+        List<String> departmentAccessNames = jdbc.sql("""
+                SELECT d.department_name FROM sys_user_department ud
+                JOIN sys_department d ON d.id=ud.department_id
+                WHERE ud.user_id=:id
+                ORDER BY d.department_code,d.id
+                """).param("id", id).query(String.class).list();
         Long departmentId = rs.getObject("department_id", Long.class);
         return new UserSummary(id, rs.getString("login_name"), rs.getString("display_name"), rs.getString("employee_no"), rs.getString("wecom_user_id"),
                 departmentId, rs.getString("department_name"), rs.getBoolean("enabled"), rs.getBoolean("must_change_password"),
-                rs.getObject("locked_until", java.time.OffsetDateTime.class), roles,
+                rs.getObject("locked_until", java.time.OffsetDateTime.class), roles, departmentAccessNames,
                 rs.getObject("created_at", java.time.OffsetDateTime.class));
     }
 

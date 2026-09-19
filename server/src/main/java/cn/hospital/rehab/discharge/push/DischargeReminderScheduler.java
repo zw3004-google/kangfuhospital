@@ -45,21 +45,25 @@ public class DischargeReminderScheduler {
 
     private void createFollowUp(LocalDate day) {
         String sql = """
-                WITH message AS (
+                INSERT INTO push_task(business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,content,status,scheduled_at)
+                SELECT 'DISCHARGE','FOLLOW_UP',:day,u.wecom_user_id,u.display_name,m.content,'PENDING',CURRENT_TIMESTAMP
+                FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.id JOIN sys_role r ON r.id=ur.role_id
+                CROSS JOIN LATERAL (
                   SELECT STRING_AGG(%s||'患者，住院号：'||e.inpatient_no||'，今日需要随访。', E'\n' ORDER BY e.inpatient_no) content
                   FROM discharge_record d JOIN patient_encounter e ON e.id=d.encounter_id
                   WHERE d.actual_discharge_at::date IN (:day7,:day30,:day60)
-                )
-                INSERT INTO push_task(business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,content,status,scheduled_at)
-                SELECT 'DISCHARGE','FOLLOW_UP',:day,u.wecom_user_id,u.display_name,m.content,'PENDING',CURRENT_TIMESTAMP
-                FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.id JOIN sys_role r ON r.id=ur.role_id CROSS JOIN message m
+                    AND EXISTS (
+                      SELECT 1 FROM sys_user_department ud
+                      JOIN sys_department access_department ON access_department.id=ud.department_id AND access_department.enabled=true
+                      WHERE ud.user_id=u.id AND ud.department_id=e.department_id
+                    )
+                ) m
                 WHERE u.enabled=true AND r.enabled=true AND r.role_code='FOLLOW_UP' AND m.content IS NOT NULL
                 ON CONFLICT DO NOTHING
                 """.formatted(MASKED_NAME);
         jdbc.sql(sql).param("day", day).param("day7", day.minusDays(7)).param("day30", day.minusDays(30))
                 .param("day60", day.minusDays(60)).update();
     }
-
     private void createUnplanned(LocalDate day) {
         String sql = """
                 INSERT INTO push_task(business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,content,status,scheduled_at)
