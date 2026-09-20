@@ -2,6 +2,17 @@
 set -Eeuo pipefail
 source "$(dirname "$0")/common.sh"
 require_root
+
+wait_for_health() {
+  local deadline=$((SECONDS + 60))
+  until curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null 2>&1; do
+    if (( SECONDS >= deadline )); then
+      return 1
+    fi
+    sleep 2
+  done
+}
+
 bash "${PACKAGE_ROOT}/scripts/backup.sh"
 RELEASE="$(date +%Y%m%d%H%M%S)"
 TARGET="${APP_ROOT}/releases/${RELEASE}"
@@ -10,5 +21,8 @@ cp -a "${PACKAGE_ROOT}/app/." "${TARGET}/app/"
 chown -R root:kangfu "${TARGET}"
 ln -sfn "${TARGET}" "${APP_ROOT}/current"
 systemctl restart kangfu-server
-bash "${PACKAGE_ROOT}/scripts/verify.sh" || { bash "${PACKAGE_ROOT}/scripts/rollback.sh"; die "升级验证失败，已自动回滚应用版本；数据库如需回退请按手册恢复备份"; }
+if ! wait_for_health || ! bash "${PACKAGE_ROOT}/scripts/verify.sh"; then
+  bash "${PACKAGE_ROOT}/scripts/rollback.sh"
+  die "升级验证失败，已自动回滚应用版本；数据库如需回退请按手册恢复备份"
+fi
 echo "升级完成：${RELEASE}"

@@ -19,7 +19,7 @@
        systemctl restart kangfu-server
   5. 执行：bash scripts/verify.sh
 
-完整步骤、参数、升级、回滚及排障方法见随包 DEPLOYMENT_GUIDE.md。
+完整步骤、参数、升级、回滚及排障方法见随包 DEPLOYMENT_GUIDE.md；172.16.196.112 已有环境升级请直接使用 UPGRADE_172.16.196.112.md。
 
 升级与登录来源排障（2026-09-05 补充）：
   - 升级现有服务器时也必须核对 /etc/kangfu/kangfu.env 中的 APP_ALLOWED_ORIGINS，不能只替换应用文件。
