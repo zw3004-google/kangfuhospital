@@ -16,25 +16,30 @@ public class UserRepository {
 
     public UserRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public List<UserSummary> findPage(String keyword, Long departmentId, int limit, int offset) {
+    public List<UserSummary> findPage(String keyword, Long departmentId, Long roleId, Long accessDepartmentId, int limit, int offset) {
         return jdbc.sql("""
                 SELECT u.*, d.department_name
                 FROM sys_user u LEFT JOIN sys_department d ON d.id=u.department_id
                 WHERE (:keyword='' OR u.display_name ILIKE :pattern OR u.login_name ILIKE :pattern OR u.employee_no ILIKE :pattern OR u.wecom_user_id ILIKE :pattern)
                   AND (:departmentId = 0 OR u.department_id=:departmentId)
+                  AND (:roleId = 0 OR EXISTS (SELECT 1 FROM sys_user_role ur WHERE ur.user_id=u.id AND ur.role_id=:roleId))
+                  AND (:accessDepartmentId = 0 OR EXISTS (SELECT 1 FROM sys_user_department ud WHERE ud.user_id=u.id AND ud.department_id=:accessDepartmentId))
                 ORDER BY u.enabled DESC, u.created_at DESC LIMIT :limit OFFSET :offset
                 """).param("keyword", clean(keyword)).param("pattern", "%" + clean(keyword) + "%")
                 .param("departmentId", departmentId == null ? 0L : departmentId)
+                .param("roleId", roleId == null ? 0L : roleId).param("accessDepartmentId", accessDepartmentId == null ? 0L : accessDepartmentId)
                 .param("limit", limit).param("offset", offset).query(this::map).list();
     }
 
-    public long count(String keyword, Long departmentId) {
+    public long count(String keyword, Long departmentId, Long roleId, Long accessDepartmentId) {
         return jdbc.sql("""
                 SELECT COUNT(*) FROM sys_user u
                 WHERE (:keyword='' OR u.display_name ILIKE :pattern OR u.login_name ILIKE :pattern OR u.employee_no ILIKE :pattern OR u.wecom_user_id ILIKE :pattern)
                   AND (:departmentId = 0 OR u.department_id=:departmentId)
+                  AND (:roleId = 0 OR EXISTS (SELECT 1 FROM sys_user_role ur WHERE ur.user_id=u.id AND ur.role_id=:roleId))
+                  AND (:accessDepartmentId = 0 OR EXISTS (SELECT 1 FROM sys_user_department ud WHERE ud.user_id=u.id AND ud.department_id=:accessDepartmentId))
                 """).param("keyword", clean(keyword)).param("pattern", "%" + clean(keyword) + "%")
-                .param("departmentId", departmentId == null ? 0L : departmentId).query(Long.class).single();
+                .param("departmentId", departmentId == null ? 0L : departmentId).param("roleId", roleId == null ? 0L : roleId).param("accessDepartmentId", accessDepartmentId == null ? 0L : accessDepartmentId).query(Long.class).single();
     }
 
     public List<UserSummary> findAll() {

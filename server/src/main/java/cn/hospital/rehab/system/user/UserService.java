@@ -27,11 +27,11 @@ public class UserService {
         this.initialPassword = initialPassword;
     }
 
-    public PageResult<UserSummary> list(String keyword, Long departmentId, int page, int pageSize) {
+    public PageResult<UserSummary> list(String keyword, Long departmentId, Long roleId, Long accessDepartmentId, int page, int pageSize) {
         int safePage = Math.max(page, 1);
         int safeSize = Set.of(20, 50, 100, 200).contains(pageSize) ? pageSize : 50;
-        return new PageResult<>(users.findPage(keyword, departmentId, safeSize, (safePage - 1) * safeSize),
-                users.count(keyword, departmentId), safePage, safeSize);
+        return new PageResult<>(users.findPage(keyword, departmentId, roleId, accessDepartmentId, safeSize, (safePage - 1) * safeSize),
+                users.count(keyword, departmentId, roleId, accessDepartmentId), safePage, safeSize);
     }
 
     @Transactional

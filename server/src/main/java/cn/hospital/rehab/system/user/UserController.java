@@ -19,9 +19,11 @@ public class UserController {
     @GetMapping
     ApiResponse<PageResult<UserSummary>> list(@RequestParam(required = false) String keyword,
                                                @RequestParam(required = false) Long departmentId,
+                                               @RequestParam(required = false) Long roleId,
+                                               @RequestParam(required = false) Long accessDepartmentId,
                                                @RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "50") int pageSize) {
-        return ApiResponse.ok(service.list(keyword, departmentId, page, pageSize));
+        return ApiResponse.ok(service.list(keyword, departmentId, roleId, accessDepartmentId, page, pageSize));
     }
 
     @PreAuthorize("hasAuthority('PERM_API_USER_MANAGE')")

@@ -13,12 +13,12 @@ class DischargeReminderPreviewTest {
 
         assertThat(preview.totalPatients()).isEqualTo(10);
         assertThat(preview.items()).extracting(DischargeReminderController.ReminderItem::type)
-                .containsExactly("NUTRITION", "HOME", "FOLLOW_UP", "UNPLANNED");
+                .containsExactly("NUTRITION", "HOME", "FOLLOW_UP", "ABNORMAL_REPORT");
         assertThat(preview.items()).allSatisfy(item -> {
             assertThat(item.recipientScope()).isNotBlank();
             assertThat(item.triggerBasis()).isNotBlank();
             assertThat(item.messagePreview()).contains("姓名脱敏").contains("住院号");
         });
-        assertThat(preview.items().get(3).triggerBasis()).contains("计划缺失");
+        assertThat(preview.items().get(3).triggerBasis()).contains("填报异常");
     }
 }

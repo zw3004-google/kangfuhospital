@@ -69,19 +69,17 @@ public class ArrearsReportController {
         Set<Long> departmentIds = scope.departmentIds().isEmpty() ? Set.of(-1L) : scope.departmentIds();
         var ranking = jdbc.sql("""
                 SELECT COALESCE(d.department_name,e.ward_name,'未分配') department_name,
-                       SUM(a.arrears_amount) amount, COUNT(*) people
+                       SUM(ABS(a.arrears_amount)) amount, COUNT(*) people
                   FROM arrears_record a
                   JOIN patient_encounter e ON e.id=a.encounter_id
              LEFT JOIN sys_department d ON d.id=e.department_id
-                 WHERE a.import_batch_id=:batchId
-                   AND a.in_arrears=true AND a.payment_status='UNPAID'
+                 WHERE a.import_batch_id=:batchId AND a.in_arrears=true AND a.payment_status='UNPAID'
                    AND (:allDepartments=TRUE OR e.department_id IN (:departmentIds) OR
                         (CAST(:doctorUserId AS BIGINT) IS NOT NULL AND e.doctor_user_id=:doctorUserId))
               GROUP BY COALESCE(d.department_name,e.ward_name,'未分配'),
                        COALESCE(d.department_code,e.ward_name,'')
               ORDER BY amount DESC,COALESCE(d.department_code,e.ward_name,'')
-                """).param("batchId", selectedBatch.id())
-                .param("allDepartments", scope.allDepartments())
+                """).param("batchId", selectedBatch.id()).param("allDepartments", scope.allDepartments())
                 .param("departmentIds", departmentIds)
                 .param("doctorUserId", scope.doctorUserId())
                 .query((r, row) -> new DepartmentStat(
@@ -89,28 +87,26 @@ public class ArrearsReportController {
 
         var patientTop10 = jdbc.sql("""
                 SELECT ROW_NUMBER() OVER (
-                           ORDER BY a.arrears_amount DESC,
+                           ORDER BY ABS(a.arrears_amount) DESC,
                                     COALESCE(d.department_code,e.ward_name,''),
                                     e.inpatient_no,e.admission_times
                        ) rank,
                        e.inpatient_no,e.admission_times,e.patient_name,
                        COALESCE(d.department_name,e.ward_name,'未分配') department_name,
                        COALESCE(u.display_name,e.doctor_name_source,'未匹配') doctor_name,
-                       a.arrears_type,a.arrears_amount,a.recovery_progress
+                       a.arrears_type,ABS(a.arrears_amount) arrears_amount,a.recovery_progress
                   FROM arrears_record a
                   JOIN patient_encounter e ON e.id=a.encounter_id
              LEFT JOIN sys_department d ON d.id=e.department_id
              LEFT JOIN sys_user u ON u.id=e.doctor_user_id
-                 WHERE a.import_batch_id=:batchId
-                   AND a.in_arrears=true AND a.payment_status='UNPAID'
+                 WHERE a.import_batch_id=:batchId AND a.in_arrears=true AND a.payment_status='UNPAID'
                    AND (:allDepartments=TRUE OR e.department_id IN (:departmentIds) OR
                         (CAST(:doctorUserId AS BIGINT) IS NOT NULL AND e.doctor_user_id=:doctorUserId))
-              ORDER BY a.arrears_amount DESC,
+              ORDER BY ABS(a.arrears_amount) DESC,
                        COALESCE(d.department_code,e.ward_name,''),
                        e.inpatient_no,e.admission_times
                  LIMIT 10
-                """).param("batchId", selectedBatch.id())
-                .param("allDepartments", scope.allDepartments())
+                """).param("batchId", selectedBatch.id()).param("allDepartments", scope.allDepartments())
                 .param("departmentIds", departmentIds)
                 .param("doctorUserId", scope.doctorUserId())
                 .query((r, row) -> new PatientStat(

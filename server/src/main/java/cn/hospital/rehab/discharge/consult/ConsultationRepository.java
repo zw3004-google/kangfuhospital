@@ -25,7 +25,7 @@ public class ConsultationRepository {
 
     public ConsultationRecord create(long encounterId, String type, OffsetDateTime at,String executorName,String executionResult, DataScope scope) {
         assertEncounterVisible(encounterId, scope);
-        long id = jdbc.sql("INSERT INTO " + table(type) + "(encounter_id,appointment_at,executor_name,execution_result) VALUES (:encounter,:at,:executor,:result) RETURNING id")
+        long id = jdbc.sql("INSERT INTO " + table(type) + "(encounter_id,appointment_at,executor_name,execution_result,reported_at) VALUES (:encounter,:at,:executor,:result,CURRENT_TIMESTAMP) RETURNING id")
                 .param("encounter", encounterId).param("at", at).param("executor",clean(executorName)).param("result",clean(executionResult)).query(Long.class).single();
         return find(id, type, scope);
     }

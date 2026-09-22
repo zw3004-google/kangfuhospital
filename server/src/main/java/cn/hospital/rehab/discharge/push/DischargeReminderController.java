@@ -19,6 +19,7 @@ import java.util.Map;
 @RequestMapping("/api/discharge/reminders")
 public class DischargeReminderController {
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final java.time.OffsetDateTime PUSH_GO_LIVE_AT = java.time.OffsetDateTime.parse("2026-10-01T00:00:00+08:00");
     private final JdbcClient jdbc;
     private final DischargeReminderScheduler scheduler;
     private final AuditLogService audit;
@@ -32,14 +33,15 @@ public class DischargeReminderController {
     @GetMapping("/preview")
     public ApiResponse<Preview> preview() {
         LocalDate day = LocalDate.now(SHANGHAI);
-        long nutrition = count("SELECT COUNT(DISTINCT encounter_id) FROM discharge_nutrition_consultation WHERE deleted=false AND appointment_at::date=:day", day);
-        long homeRehab = count("SELECT COUNT(DISTINCT encounter_id) FROM discharge_home_rehab_consultation WHERE deleted=false AND appointment_at::date=:day", day);
-        long followUp = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE actual_discharge_at::date IN (:day7,:day30,:day60)")
-                .param("day7", day.minusDays(7)).param("day30", day.minusDays(30)).param("day60", day.minusDays(60))
+        long nutrition = countEligibleConsultations("discharge_nutrition_consultation", day);
+        long homeRehab = countEligibleConsultations("discharge_home_rehab_consultation", day);
+        long followUp = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE actual_discharge_at::date IN (:day7,:day30,:day60) AND actual_discharge_at>=:goLiveAt")
+                .param("day7", day.minusDays(7)).param("day30", day.minusDays(30)).param("day60", day.minusDays(60)).param("goLiveAt", PUSH_GO_LIVE_AT)
                 .query(Long.class).single();
-        long unplanned = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE actual_discharge_at::date=:yesterday AND (planned_discharge_at IS NULL OR planned_discharge_at::date<>actual_discharge_at::date)")
-                .param("yesterday", day.minusDays(1)).query(Long.class).single();
-        return ApiResponse.ok(Preview.of(day, nutrition, homeRehab, followUp, unplanned));
+        var cutoff = day.atTime(8, 0).atZone(SHANGHAI).toOffsetDateTime();
+        long abnormal = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE actual_discharge_at>=:goLiveAt AND COALESCE(abnormal_codes,'')<>'' AND updated_at<=:cutoff")
+                .param("cutoff", cutoff).param("goLiveAt", PUSH_GO_LIVE_AT).query(Long.class).single();
+        return ApiResponse.ok(Preview.of(day, nutrition, homeRehab, followUp, abnormal));
     }
 
     @PostMapping("/trigger")
@@ -54,8 +56,9 @@ public class DischargeReminderController {
         return ApiResponse.ok(result);
     }
 
-    private long count(String sql, LocalDate day) {
-        return jdbc.sql(sql).param("day", day).query(Long.class).single();
+    private long countEligibleConsultations(String table, LocalDate day) {
+        return jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM " + table + " WHERE deleted=false AND appointment_at::date=:day AND reported_at>=:goLiveAt")
+                .param("day", day).param("goLiveAt", PUSH_GO_LIVE_AT).query(Long.class).single();
     }
 
     private long taskCount(LocalDate day) {
@@ -65,12 +68,12 @@ public class DischargeReminderController {
 
     public record Preview(LocalDate reminderDate, long nutritionCount, long homeRehabCount,
                           long followUpCount, long unplannedCount, long totalPatients, List<ReminderItem> items) {
-        static Preview of(LocalDate day, long nutrition, long homeRehab, long followUp, long unplanned) {
-            return new Preview(day, nutrition, homeRehab, followUp, unplanned, nutrition + homeRehab + followUp + unplanned, List.of(
+        static Preview of(LocalDate day, long nutrition, long homeRehab, long followUp, long abnormal) {
+            return new Preview(day, nutrition, homeRehab, followUp, abnormal, nutrition + homeRehab + followUp + abnormal, List.of(
                     new ReminderItem("NUTRITION", "营养会诊", "营养科岗位人员", nutrition, "预约日期为提醒当日", "患者（姓名脱敏），住院号：****，今日需要营养会诊。"),
                     new ReminderItem("HOME", "居家康复", "居家康复科岗位人员", homeRehab, "预约日期为提醒当日", "患者（姓名脱敏），住院号：****，今日需要居家康复会诊。"),
                     new ReminderItem("FOLLOW_UP", "出院随访", "随访员岗位人员", followUp, "实际出院满7/30/60天", "患者（姓名脱敏），住院号：****，今日需要随访。"),
-                    new ReminderItem("UNPLANNED", "非计划出院", "患者主管医生", unplanned, "昨日实际出院且计划缺失或日期不一致", "患者（姓名脱敏），住院号：****，非计划出院，请写明原因。")
+                    new ReminderItem("ABNORMAL_REPORT", "填报异常", "主管医生科室权限内患者", abnormal, "早上8点前已命中填报异常", "患者（姓名脱敏），住院号：****，填报异常，请及时处理。")
             ));
         }
     }

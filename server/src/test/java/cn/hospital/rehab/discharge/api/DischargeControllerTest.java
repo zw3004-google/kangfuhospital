@@ -5,6 +5,7 @@ import cn.hospital.rehab.common.audit.AuditLogService;
 import cn.hospital.rehab.common.security.DataScope;
 import cn.hospital.rehab.common.security.DataScopeService;
 import cn.hospital.rehab.common.security.FieldPermissionService;
+import cn.hospital.rehab.discharge.push.DischargeReminderScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.Authentication;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,9 +25,10 @@ class DischargeControllerTest {
     private final DischargeRecordHistoryService history = mock(DischargeRecordHistoryService.class);
     private final Authentication authentication = mock(Authentication.class);
     private final FieldPermissionService fields = mock(FieldPermissionService.class);
+    private final DischargeReminderScheduler reminders = mock(DischargeReminderScheduler.class);
     private final DataScope scope = new DataScope(false, Set.of(12L), 34L);
     private final DischargeController controller = new DischargeController(repository, scopes,
-            mock(AuditLogService.class), history, fields);
+            mock(AuditLogService.class), history, fields, reminders);
 
     @Test
     void pagePassesAllFiltersAndResolvedScope() {
@@ -95,5 +97,6 @@ class DischargeControllerTest {
         verify(fields).require(authentication,"FIELD_ATTENDING_DOCTOR");
         verify(fields).require(authentication,"FIELD_OUTPATIENT");
         verify(fields).require(authentication,"FIELD_FOLLOW_UP");
+        verify(reminders).createLateFollowUpReminders(current.id(),"[]");
     }
 }

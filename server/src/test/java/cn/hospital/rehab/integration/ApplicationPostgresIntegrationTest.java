@@ -490,16 +490,27 @@ class ApplicationPostgresIntegrationTest {
     @Transactional
     void operationsCanPreviewAndTriggerDischargeRemindersWithAuditTrail() throws Exception {
         jdbc.sql("""
-                UPDATE discharge_record d SET planned_discharge_at=NULL, actual_discharge_at=(CURRENT_DATE - 1) + TIME '10:00'
-                FROM patient_encounter e WHERE e.id=d.encounter_id AND e.inpatient_no='TEST-0001'
+                UPDATE discharge_record d
+                   SET actual_discharge_at=TIMESTAMPTZ '2026-10-01 10:00:00+08',
+                       abnormal_codes='MISSING_PLAN',
+                       updated_at=CURRENT_DATE + TIME '07:30'
+                  FROM patient_encounter e
+                 WHERE e.id=d.encounter_id AND e.inpatient_no='TEST-0001'
+                """).update();
+        jdbc.sql("""
+                INSERT INTO sys_user_department(user_id,department_id)
+                SELECT u.id,e.department_id
+                FROM sys_user u JOIN patient_encounter e ON e.inpatient_no='TEST-0001'
+                WHERE u.login_name='test_doctor_a'
+                ON CONFLICT DO NOTHING
                 """).update();
         mvc.perform(get("/api/discharge/reminders/preview").with(sessionAuth("test_operations", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.reminderDate").isNotEmpty())
                 .andExpect(jsonPath("$.data.totalPatients").isNumber())
                 .andExpect(jsonPath("$.data.items.length()").value(4))
-                .andExpect(jsonPath("$.data.items[3].recipientScope").value("患者主管医生"))
-                .andExpect(jsonPath("$.data.items[3].triggerBasis").value(org.hamcrest.Matchers.containsString("计划缺失")));
+                .andExpect(jsonPath("$.data.items[3].recipientScope").value("主管医生科室权限内患者"))
+                .andExpect(jsonPath("$.data.items[3].triggerBasis").value(org.hamcrest.Matchers.containsString("填报异常")));
         mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_operations", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.reminderDate").isNotEmpty())
@@ -507,8 +518,10 @@ class ApplicationPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.message").value("提醒任务已生成；重复任务已自动忽略"));
         assertThat(jdbc.sql("SELECT COUNT(*) FROM operation_audit_log WHERE business_type='DISCHARGE_REMINDER' AND action_type='MANUAL_TRIGGER' AND operator_name='test_operations'")
                 .query(Long.class).single()).isEqualTo(1);
-        assertThat(jdbc.sql("SELECT COUNT(*) FROM push_task WHERE business_type='DISCHARGE' AND reminder_type='UNPLANNED' AND recipient_wecom_id='test-doctor-a' AND reminder_date=CURRENT_DATE")
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM push_task WHERE business_type='DISCHARGE' AND reminder_type='ABNORMAL_REPORT' AND recipient_wecom_id='test-doctor-a' AND reminder_date=CURRENT_DATE")
                 .query(Long.class).single()).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM push_task WHERE business_type='DISCHARGE' AND reminder_type='ABNORMAL_REPORT' AND recipient_wecom_id='test-doctor-b' AND reminder_date=CURRENT_DATE")
+                .query(Long.class).single()).isZero();
         mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_director", "kfyy123!")))
                 .andExpect(status().isForbidden());
     }

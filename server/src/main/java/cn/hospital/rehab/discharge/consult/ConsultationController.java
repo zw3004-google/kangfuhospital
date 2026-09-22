@@ -5,6 +5,7 @@ import cn.hospital.rehab.common.security.DataScopeService;
 import cn.hospital.rehab.common.security.DataScope;
 import cn.hospital.rehab.common.security.FieldPermissionService;
 import cn.hospital.rehab.common.audit.AuditLogService;
+import cn.hospital.rehab.discharge.push.DischargeReminderScheduler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -20,12 +21,14 @@ public class ConsultationController {
     private final DataScopeService scopes;
     private final AuditLogService audit;
     private final FieldPermissionService fields;
+    private final DischargeReminderScheduler reminders;
 
-    public ConsultationController(ConsultationRepository repository, DataScopeService scopes,AuditLogService audit,FieldPermissionService fields) {
+    public ConsultationController(ConsultationRepository repository, DataScopeService scopes,AuditLogService audit,FieldPermissionService fields,DischargeReminderScheduler reminders) {
         this.repository = repository;
         this.scopes = scopes;
         this.audit=audit;
         this.fields=fields;
+        this.reminders=reminders;
     }
 
     @GetMapping
@@ -38,14 +41,14 @@ public class ConsultationController {
     public ApiResponse<ConsultationRecord> create(Authentication auth,HttpServletRequest http, @RequestParam long encounterId,
                                                    @RequestParam String type, @Valid @RequestBody ConsultationRequest request) {
         requireField(auth,type);
-        var result=repository.create(encounterId,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scopes.resolve(auth));audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(result.id()),"CREATE",null,result,http.getRemoteAddr());return ApiResponse.ok(result);
+        var result=repository.create(encounterId,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scopes.resolve(auth));reminders.createLateConsultationReminder(type,result.id(),result.appointmentAt());audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(result.id()),"CREATE",null,result,http.getRemoteAddr());return ApiResponse.ok(result);
     }
 
     @PutMapping("/{id}")
     public ApiResponse<ConsultationRecord> update(Authentication auth,HttpServletRequest http, @PathVariable long id,
                                                    @RequestParam String type, @Valid @RequestBody ConsultationRequest request) {
         requireField(auth,type);
-        DataScope scope=scopes.resolve(auth);var before=repository.find(id,type,scope);var after=repository.update(id,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scope);audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(id),"UPDATE",before,after,http.getRemoteAddr());return ApiResponse.ok(after);
+        DataScope scope=scopes.resolve(auth);var before=repository.find(id,type,scope);var after=repository.update(id,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scope);reminders.createLateConsultationReminder(type,after.id(),after.appointmentAt());audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(id),"UPDATE",before,after,http.getRemoteAddr());return ApiResponse.ok(after);
     }
 
     @DeleteMapping("/{id}")

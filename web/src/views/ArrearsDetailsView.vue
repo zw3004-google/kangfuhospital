@@ -17,8 +17,9 @@ const mobileFilters=ref(false)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
 const rows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref(''),feeType=ref(''),recoveryProgress=ref(''),inArrears=ref<boolean>(true),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),syncing=ref(''),saving=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
 const queryParams=()=>({page:page.value,pageSize:pageSize.value,keyword:keyword.value||undefined,departmentId:departmentId.value,arrearsType:arrearsType.value||undefined,feeType:feeType.value||undefined,recoveryProgress:recoveryProgress.value||undefined,inArrears:inArrears.value})
+const sortRowsByArrearsAmount=(items:Row[])=>[...items].sort((left,right)=>Math.abs(Number(right.arrearsAmount||0))-Math.abs(Number(left.arrearsAmount||0)))
 const summaryParams=()=>{const {page:_,pageSize:__,...params}=queryParams();return params}
-const load=async()=>{loading.value=true;try{const r=(await http.get<ApiResponse<Page<Row>>>('/arrears/records',{params:queryParams()})).data.data;rows.value=r.items;total.value=r.total}catch(e){ElMessage.error(e instanceof Error?e.message:'加载失败')}finally{loading.value=false}}
+const load=async()=>{loading.value=true;try{const r=(await http.get<ApiResponse<Page<Row>>>('/arrears/records',{params:queryParams()})).data.data;rows.value=sortRowsByArrearsAmount(r.items);total.value=r.total}catch(e){ElMessage.error(e instanceof Error?e.message:'加载失败')}finally{loading.value=false}}
 const loadSummary=async()=>{summaryLoading.value=true;try{summary.value=(await http.get<ApiResponse<Summary>>('/arrears/records/summary',{params:summaryParams()})).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'统计加载失败')}finally{summaryLoading.value=false}}
 const loadAll=()=>Promise.all([load(),loadSummary()])
 const loadFilterOptions=async()=>{try{filterOptions.value=(await http.get<ApiResponse<FilterOptions>>('/arrears/records/filter-options')).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'筛选项加载失败')}}
@@ -30,9 +31,10 @@ const loadHistory=async(id:number)=>{historyLoading.value=true;try{historyItems.
 const historyLines=(item:HistoryItem)=>item.changeLines?.length?item.changeLines:item.changeDescription.replace(/\\n/g,'\n').split(/\r?\n/).filter(Boolean)
 const edit=(row:Row)=>{current.value=row;form.paymentStatus=row.paymentStatus;form.arrearsReason=row.arrearsReason||'';form.recoveryProgress=row.recoveryProgress||'NOT_STARTED';const draft=loadSessionDraft<typeof form>(`arrears:${row.id}`);if(draft)Object.assign(form,draft);historyItems.value=[];dialog.value=true;loadHistory(row.id)}
 const save=async()=>{if(!current.value)return;saving.value=true;try{form.arrearsReason=form.arrearsReason.trim();form.paymentStatus=form.recoveryProgress==='PAID'?'PAID':'UNPAID';await http.put(`/arrears/records/${current.value.id}`,{...form,expectedUpdatedAt:current.value.updatedAt});clearSessionDraft(`arrears:${current.value.id}`);ElMessage.success('已保存');await loadAll();await loadHistory(current.value.id);dialog.value=false}catch(e){ElMessage.error(e instanceof Error?e.message:'保存失败')}finally{saving.value=false}}
-const togglePaid=async(row:Row)=>{const paid=row.paymentStatus==='PAID',action=paid?'恢复未缴费':'标记缴费';try{await ElMessageBox.confirm(`确认将“${row.patientName}”（欠费 ${money(row.arrearsAmount)} 元）${action}？`,`${action}确认`,{type:'warning',confirmButtonText:'确认',cancelButtonText:'取消'})}catch{return}try{await http.put(`/arrears/records/${row.id}`,{paymentStatus:paid?'UNPAID':'PAID',arrearsReason:row.arrearsReason,recoveryProgress:paid?null:'PAID',expectedUpdatedAt:row.updatedAt});ElMessage.success(`已${action}`);await loadAll()}catch(e){ElMessage.error(e instanceof Error?e.message:'操作失败')}}
+const togglePaid=async(row:Row)=>{const paid=row.paymentStatus==='PAID',action=paid?'恢复未缴费':'标记缴费';try{await ElMessageBox.confirm(`确认将“${row.patientName}”（欠费 ${arrearsMoney(row.arrearsAmount)} 元）${action}？`,`${action}确认`,{type:'warning',confirmButtonText:'确认',cancelButtonText:'取消'})}catch{return}try{await http.put(`/arrears/records/${row.id}`,{paymentStatus:paid?'UNPAID':'PAID',arrearsReason:row.arrearsReason,recoveryProgress:paid?null:'PAID',expectedUpdatedAt:row.updatedAt});ElMessage.success(`已${action}`);await loadAll()}catch(e){ElMessage.error(e instanceof Error?e.message:'操作失败')}}
 watch(form,()=>{if(dialog.value&&current.value)saveSessionDraft(`arrears:${current.value.id}`,{...form})},{deep:true})
 const money=(value:number)=>Number(value||0).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})
+const arrearsMoney=(value:number)=>money(Math.abs(Number(value||0)))
 const time=(value:string|null|undefined)=>value?new Date(value).toLocaleString('zh-CN',{hour12:false}):'—'
 const date=(value:string|null|undefined)=>value?new Intl.DateTimeFormat('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value)).replaceAll('/','-'):'—'
 const ward=(row:Row)=>row.wardName||row.departmentName||'—'
@@ -78,7 +80,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </div>
 <div>
 <span>欠费金额合计</span>
-<strong>{{money(summary?.totalAmount||0)}} 元</strong>
+<strong>{{arrearsMoney(summary?.totalAmount||0)}} 元</strong>
 <small>数据更新于 {{time(summary?.sourceUpdatedAt)}}</small>
 </div>
 <div>
@@ -130,7 +132,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <div v-loading="loading" class="mobile-only mobile-record-list"><el-empty v-if="!loading&&!rows.length" description="暂无欠费患者"/>
 <article v-for="row in rows" :key="row.id" class="mobile-record-card arrears-mobile-card">
 <header><div><strong>{{row.patientName}}</strong><span>{{row.inpatientNo}} · 第{{row.admissionTimes}}次住院</span></div><el-tag :type="progressTagType(row.recoveryProgress)" effect="light">{{progressLabel(row.recoveryProgress)}}</el-tag></header>
-<div class="mobile-record-primary"><span>欠费金额</span><strong>{{money(row.arrearsAmount)}} 元</strong></div>
+<div class="mobile-record-primary"><span>欠费金额</span><strong>{{arrearsMoney(row.arrearsAmount)}} 元</strong></div>
 <dl><div><dt>欠费类型</dt><dd>{{arrearsTypeLabel(row.arrearsType)}}</dd></div><div><dt>科室/病区</dt><dd>{{ward(row)}}</dd></div><div><dt>主管医生</dt><dd>{{row.doctorName||'—'}}<small v-if="row.doctorEmployeeNo"> · {{row.doctorEmployeeNo}}</small></dd></div><div><dt>数据更新时间</dt><dd>{{time(row.sourceUpdatedAt)}}</dd></div></dl>
 <footer><el-button v-permission="'PERM_API_ARREARS_EDIT'" link type="primary" @click="edit(row)">编辑标注</el-button><el-button v-permission="'PERM_API_ARREARS_EDIT'" link @click="togglePaid(row)">{{row.paymentStatus==='PAID'?'恢复未缴费':'标记缴费'}}</el-button></footer>
 </article></div>
@@ -182,7 +184,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </el-table-column>
 <el-table-column label="欠费金额" width="130" align="right" header-align="right">
 <template #default="s">
-<span class="money-cell arrears-money">{{money(s.row.arrearsAmount)}}</span>
+<span class="money-cell arrears-money">{{arrearsMoney(s.row.arrearsAmount)}}</span>
 </template>
 </el-table-column>
 <el-table-column prop="arrearsReason" label="情况说明" min-width="180" show-overflow-tooltip>
@@ -208,7 +210,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </el-table>
 <el-pagination class="pagination" v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[20,50,100,200]" :total="total" layout="total,sizes,prev,pager,next" @change="load"/>
 <el-dialog v-model="dialog" title="编辑催缴信息" width="720px" class="mobile-full-dialog">
-<div v-if="current" class="mobile-only mobile-patient-summary"><strong>{{current.patientName}}</strong><span>{{current.inpatientNo}} · 第{{current.admissionTimes}}次住院</span><dl><div><dt>科室/病区</dt><dd>{{ward(current)}}</dd></div><div><dt>主管医生</dt><dd>{{current.doctorName||'—'}}</dd></div><div><dt>医生工号</dt><dd>{{current.doctorEmployeeNo||'—'}}</dd></div><div><dt>欠费金额</dt><dd class="arrears-money">{{money(current.arrearsAmount)}} 元</dd></div></dl></div>
+<div v-if="current" class="mobile-only mobile-patient-summary"><strong>{{current.patientName}}</strong><span>{{current.inpatientNo}} · 第{{current.admissionTimes}}次住院</span><dl><div><dt>科室/病区</dt><dd>{{ward(current)}}</dd></div><div><dt>主管医生</dt><dd>{{current.doctorName||'—'}}</dd></div><div><dt>医生工号</dt><dd>{{current.doctorEmployeeNo||'—'}}</dd></div><div><dt>欠费金额</dt><dd class="arrears-money">{{arrearsMoney(current.arrearsAmount)}} 元</dd></div></dl></div>
 <el-descriptions v-if="current" :column="3" border class="arrears-edit-summary">
 <el-descriptions-item label="姓名">{{current.patientName}}</el-descriptions-item>
 <el-descriptions-item label="住院号">{{current.inpatientNo}}</el-descriptions-item>
@@ -216,7 +218,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <el-descriptions-item label="住院病区">{{ward(current)}}</el-descriptions-item>
 <el-descriptions-item label="主管医生">{{current.doctorName||'—'}}</el-descriptions-item>
 <el-descriptions-item label="医生工号">{{current.doctorEmployeeNo||'—'}}</el-descriptions-item>
-<el-descriptions-item label="欠费金额"><span class="arrears-money">{{money(current.arrearsAmount)}} 元</span></el-descriptions-item>
+<el-descriptions-item label="欠费金额"><span class="arrears-money">{{arrearsMoney(current.arrearsAmount)}} 元</span></el-descriptions-item>
 </el-descriptions>
 <el-form label-width="90px">
 <el-form-item label="情况说明">

@@ -18,14 +18,16 @@ const noticeLoading = ref(false)
 const notice = ref<NoticePreview | null>(null)
 const exporting = ref(false)
 
-const descendingByAmount = <T extends { amount?: number; arrearsAmount?: number }>(items: T[]) => [...items].sort((left, right) => Number(right.amount ?? right.arrearsAmount ?? 0) - Number(left.amount ?? left.arrearsAmount ?? 0))
+const descendingByAmount = <T extends { amount?: number; arrearsAmount?: number }>(items: T[]) => [...items].sort((left, right) => Math.abs(Number(right.amount ?? right.arrearsAmount ?? 0)) - Math.abs(Number(left.amount ?? left.arrearsAmount ?? 0)))
+const rankedPatients = (items: PatientStat[]) => descendingByAmount(items).map((item, index) => ({ ...item, rank: index + 1 }))
 
 const load = async () => {
   loading.value = true
   error.value = ''
   try {
     const report = (await http.get<ApiResponse<ReportData>>('/arrears/report')).data.data
-    data.value = { ...report, ranking: descendingByAmount(report.ranking), top3: descendingByAmount(report.top3), patientTop10: descendingByAmount(report.patientTop10) }
+    const ranking = descendingByAmount(report.ranking)
+    data.value = { ...report, ranking, top3: ranking.slice(0, 3), patientTop10: rankedPatients(report.patientTop10) }
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '加载失败'
     ElMessage.error(error.value)
@@ -64,17 +66,17 @@ const exportReport = async () => {
   }
 }
 
-const maxDepartmentAmount = computed(() => Math.max(0, ...(data.value?.ranking.map(item => Number(item.amount)) ?? [])))
+const maxDepartmentAmount = computed(() => Math.max(0, ...(data.value?.ranking.map(item => Math.abs(Number(item.amount))) ?? [])))
 const scopeHeading = computed(() => {
   if (data.value?.scopeType === 'ALL') return '全院科室'
   if (data.value?.scopeType === 'DEPARTMENT') return '本科室'
   if (data.value?.scopeType === 'DOCTOR') return '本人负责患者所属科室'
   return data.value?.scopeLabel || '授权范围'
 })
-const formatMoney = (value: number) => `${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`
+const formatMoney = (value: number) => `${Math.abs(Number(value || 0)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`
 const formatTime = (value?: string) => value ? new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)) : '—'
-const rankPercentage = (amount: number) => maxDepartmentAmount.value > 0 ? Math.round(Number(amount) / maxDepartmentAmount.value * 100) : 0
-const rankWidth = (amount: number) => maxDepartmentAmount.value > 0 ? `${Math.max(2, Number(amount) / maxDepartmentAmount.value * 100)}%` : '0%'
+const rankPercentage = (amount: number) => maxDepartmentAmount.value > 0 ? Math.round(Math.abs(Number(amount)) / maxDepartmentAmount.value * 100) : 0
+const rankWidth = (amount: number) => maxDepartmentAmount.value > 0 ? `${Math.max(2, Math.abs(Number(amount)) / maxDepartmentAmount.value * 100)}%` : '0%'
 const summaryStatusLabels: Record<string, string> = { READY: '更新完成', PENDING: '更新中', FAILED: '更新失败' }
 const progressLabels: Record<string, string> = { NOT_STARTED: '未催缴', NEGOTIATING: '协商中', REFUSED: '拒绝缴费', LEGAL_ACTION: '移交法务', PAID: '已缴费' }
 const arrearsTypeLabels: Record<string, string> = { INPATIENT: '在院患者', DISCHARGED_UNSETTLED: '出院未结算', DISCHARGED_SETTLED: '出院已结算' }

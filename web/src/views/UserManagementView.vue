@@ -17,13 +17,14 @@ const departments = ref<Department[]>([])
 const departmentRows = ref<Department[]>([])
 const roles = ref<Role[]>([])
 const total = ref(0)
+let userQueryRequestId = 0
 const departmentTotal = ref(0)
 const selectedUsers = ref<User[]>([])
 const selectedDepartments = ref<Department[]>([])
 const userImportFeedback = ref<ImportFeedback | null>(null)
 const departmentImportFeedback = ref<ImportFeedback | null>(null)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
-const query = reactive({ keyword: '', departmentId: undefined as number | undefined, page: 1, pageSize: initialPageSize })
+const query = reactive({ keyword: '', departmentId: undefined as number | undefined, roleId: undefined as number | undefined, accessDepartmentId: undefined as number | undefined, page: 1, pageSize: initialPageSize })
 const departmentQuery = reactive({ departmentCode: '', departmentName: '', enabled: undefined as boolean | undefined, page: 1, pageSize: initialPageSize })
 const userDialog = ref(false)
 const departmentDialog = ref(false)
@@ -67,14 +68,26 @@ function resetDepartments() {
   loadDepartments()
 }
 
+const userQueryParams = () => ({ keyword: query.keyword.trim() || undefined, departmentId: query.departmentId, roleId: query.roleId, accessDepartmentId: query.accessDepartmentId, page: query.page, pageSize: query.pageSize })
+function searchUsers() { query.page = 1; loadUsers() }
+const usersMatchingPermissionFilters = (items: User[]) => {
+  const accessDepartmentName = departments.value.find(item => item.id === query.accessDepartmentId)?.departmentName
+  return items.filter(user =>
+    (!query.roleId || user.roles.some(role => role.id === query.roleId)) &&
+    (!accessDepartmentName || (user.departmentAccessNames || []).includes(accessDepartmentName)))
+}
+
 async function loadUsers() {
+  const requestId = ++userQueryRequestId
   loading.value = true
   try {
-    const response = await http.get<ApiResponse<PageResult<User>>>('/system/users', { params: query })
-    users.value = response.data.data.items
-    total.value = response.data.data.total
-  } catch (error) { ElMessage.error(messageOf(error)) }
-  finally { loading.value = false }
+    const response = await http.get<ApiResponse<PageResult<User>>>('/system/users', { params: userQueryParams() })
+    if (requestId !== userQueryRequestId) return
+    const filteredUsers = usersMatchingPermissionFilters(response.data.data.items)
+    users.value = filteredUsers
+    total.value = (query.roleId || query.accessDepartmentId) ? filteredUsers.length : response.data.data.total
+  } catch (error) { if (requestId === userQueryRequestId) ElMessage.error(messageOf(error)) }
+  finally { if (requestId === userQueryRequestId) loading.value = false }
 }
 
 
@@ -233,11 +246,17 @@ onMounted(initialize)
     <el-tabs v-model="activeTab" class="management-tabs">
       <el-tab-pane label="用户管理" name="users">
         <div class="filter-bar">
-          <el-input v-model="query.keyword" clearable placeholder="姓名、登录名、工号或企微ID" style="width:300px" @keyup.enter="query.page=1; loadUsers()" />
-          <el-select v-model="query.departmentId" clearable placeholder="全部科室" style="width:200px">
+          <el-input v-model="query.keyword" clearable placeholder="姓名、登录名、工号或企微ID" style="width:300px" @keyup.enter="searchUsers" />
+          <el-select v-model="query.departmentId" clearable placeholder="所属科室（全部）" style="width:180px">
             <el-option v-for="item in departments" :key="item.id" :label="item.departmentName" :value="item.id" />
           </el-select>
-          <el-button type="primary" plain @click="query.page=1; loadUsers()">查询</el-button>
+          <el-select v-model="query.roleId" clearable placeholder="角色（全部）" style="width:180px" @change="searchUsers">
+            <el-option v-for="item in roles" :key="item.id" :label="item.roleName" :value="item.id" />
+          </el-select>
+          <el-select v-model="query.accessDepartmentId" clearable filterable placeholder="科室权限（全部）" style="width:180px" @change="searchUsers">
+            <el-option v-for="item in departments" :key="item.id" :label="item.departmentName" :value="item.id" />
+          </el-select>
+          <el-button type="primary" plain @click="searchUsers">查询</el-button>
         </div>
         <div class="transfer-actions" v-permission="'PERM_API_USER_MANAGE'">
           <el-button @click="download('/system/users/template', '用户导入模板.xlsx')">用户模板导出</el-button>

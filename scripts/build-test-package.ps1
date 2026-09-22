@@ -8,8 +8,11 @@ $artifactVersion = ($Version -replace '^V', '' -replace '-test-.*$', '')
 $staging = Join-Path $root "outputs\kangfu-$Version"
 $archive = Join-Path $root "outputs\kangfu-$Version.tar.gz"
 if (Test-Path $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
-New-Item -ItemType Directory -Force -Path "$staging\app\web", "$staging\runtime", "$staging\rpms", "$staging\checksums" | Out-Null
+New-Item -ItemType Directory -Force -Path "$staging\app\web", "$staging\runtime", "$staging\rpms", "$staging\checksums", "$staging\docs" | Out-Null
 Copy-Item "$root\deploy\test-package\*" $staging -Recurse -Force
+Copy-Item "$root\docs\RELEASE_NOTES.md" "$staging\docs\RELEASE_NOTES.md" -Force
+$releaseDeploymentGuide = Join-Path $root "docs\DEPLOYMENT_V$artifactVersion.md"
+if (Test-Path $releaseDeploymentGuide) { Copy-Item $releaseDeploymentGuide "$staging\docs\DEPLOYMENT_V$artifactVersion.md" -Force }
 if ($DependencyRoot) {
   $resolvedDeps = (Resolve-Path $DependencyRoot).Path
   if (Test-Path "$resolvedDeps\rpms") { Copy-Item "$resolvedDeps\rpms\*.rpm" "$staging\rpms" -Force }
@@ -25,4 +28,6 @@ $manifest = Get-ChildItem $staging -Recurse -File | Where-Object { $_.FullName -
 [IO.File]::WriteAllText("$staging\checksums\SHA256SUMS", (($manifest -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
 tar -czf $archive -C (Split-Path $staging -Parent) (Split-Path $staging -Leaf)
+$archiveHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+[IO.File]::WriteAllText("$archive.sha256", "$archiveHash  $(Split-Path $archive -Leaf)`n", [Text.UTF8Encoding]::new($false))
 Write-Output $archive
