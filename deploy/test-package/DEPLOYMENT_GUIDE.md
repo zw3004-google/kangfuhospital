@@ -40,6 +40,25 @@ sha256sum -c checksums/SHA256SUMS
 
 所有条目必须显示 `OK`。校验失败时停止操作，重新获取发布包；不得跳过校验或手工替换包内文件。
 
+## 3.1 前端版本注入与发布前核验
+
+页面右上角的版本号来自前端构建常量 `__APP_VERSION__`。该常量依赖包管理器注入的 `npm_package_version`；未注入时会回退为 `dev`，页面将显示 `Vdev`，即使后端接口和业务功能已是正确版本。
+
+构建发布包前必须在标签对应的干净源码上执行：
+
+```bash
+pnpm --dir web install --frozen-lockfile
+pnpm --dir web build
+```
+
+禁止直接执行 `vite build`、`pnpm --dir web exec vite build` 或其他绕过 `package.json` 构建脚本的 Vite 命令；这些命令可能不注入 `npm_package_version`。前端构建完成后，不得在打包前以其他命令再次覆盖 `web/dist`。
+
+打包前应完成以下双重核验：
+
+1. `web/package.json` 的版本号、后端构建版本和计划发布标签必须一致。
+2. 从本地构建产物启动或预览后，页面右上角必须显示 `V版本号`（例如 `V1.6.0`），不得显示 `Vdev`。发现不一致时停止打包，按上述命令重新构建。
+
+版本号错误的构建产物不得以相同版本号覆盖已发布包、Git 标签或服务器目录。若错误包已经发布，必须修复构建后创建新的修订版本、提交和同名标签，再生成新的升级包。
 ## 4. 首次部署（一键安装）
 
 首次部署前，先根据实际访问地址更新 Nginx 与来源白名单模板：
@@ -94,6 +113,13 @@ journalctl -u kangfu-server -n 200 --no-pager
 
 除脚本检查外，应从真实浏览器入口验证：登录与 CSRF、桌面端和 H5、欠费查询/编辑、预出院同步、角色与科室数据范围、企业微信任务创建与失败记录。确认 8080 未对外监听，且非可信 Origin 被拒绝。
 
+版本验收必须同时通过：
+
+- `/api/system/info` 响应中的 `data.version` 与本次 `VERSION` 一致，证明后端版本正确。
+- 浏览器强制刷新后，页面右上角显示 `V版本号`，证明前端静态资源正确。
+
+两项任一不一致，均不得将部署标记为完成；应保留现场信息并按新的修订版本重新发布，不得替换同版本产物。
+
 ## 7. 自动回滚与人工回滚
 
 若升级后的应用或健康检查失败，`upgrade.sh` 会自动切回上一套应用目录。人工回滚仅用于应用问题：
@@ -119,6 +145,7 @@ bash /opt/kangfu-VERSION/scripts/restore.sh /var/lib/kangfu/backup/FILE.dump
 - 登录返回 `CSRF_INVALID`：先请求 `/api/auth/csrf`，在相同会话中携带返回 Token；不要关闭 CSRF 防护。
 - 服务未启动：执行 `journalctl -u kangfu-server -n 200 --no-pager`，检查 `/etc/kangfu/kangfu.env` 权限为 600、数据库可用和 Java 21。
 - 首页 502/500：执行 `nginx -t`、检查 Nginx 服务、`/opt/kangfu/current` 链接及目录属组/权限；不要直接删除旧发布目录。
+- 功能已更新但页面显示 `Vdev`：前端静态资源很可能由直接调用 Vite 的命令构建，导致 `npm_package_version` 未注入。不要在服务器手工修改版本号；从标签对应源码使用 `pnpm --dir web build` 重新构建，并以新的修订版本重新生成、校验和部署升级包。
 
 ## 9. 部署记录
 
