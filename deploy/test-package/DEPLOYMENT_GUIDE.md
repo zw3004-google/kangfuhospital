@@ -138,6 +138,19 @@ bash /opt/kangfu-VERSION/scripts/restore.sh /var/lib/kangfu/backup/FILE.dump
 
 `restore.sh` 会停止服务并覆盖数据库内容；这是高风险操作，未经业务负责人确认不得执行。应用目录回滚不会自动回退 Flyway 结构或业务数据。
 
+## 7.1 经批准的欠费明细清空
+
+系统页面不提供删除欠费主记录的入口。仅在业务负责人和数据管理员已书面批准、且处于维护窗口时，才可使用随包 `scripts/clear-arrears-details.sh` 清空欠费明细的当前记录：
+
+```bash
+cd /opt/kangfu-VERSION
+bash scripts/clear-arrears-details.sh --confirm-clear-arrears
+```
+
+脚本会先完成 PostgreSQL 全库备份，再停止后端、在事务中清空 `arrears_record`，重启后端并检查健康状态。它不会删除患者主档、导入批次、审计日志或推送记录；执行后，下一次“同步在院欠费”会重新写入 HIS 返回的数据。脚本输出的备份路径必须记入部署记录；若结果不符合预期，停止同步并使用 `restore.sh` 恢复该备份。
+
+未包含该脚本的既有发布包不得手工修改数据库；应从对应 Git 提交获取校验后的脚本，或在下一修订版本发布时随包提供。
+
 ## 8. 常见故障
 
 - `preflight.sh` 提示企微不可达：检查 DNS、网关、防火墙或代理；不要把 Secret 写入诊断命令。
