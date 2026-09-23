@@ -20,6 +20,7 @@ const total = ref(0)
 let userQueryRequestId = 0
 const departmentTotal = ref(0)
 const selectedUsers = ref<User[]>([])
+const userTable = ref<{ getSelectionRows: () => User[] } | null>(null)
 const selectedDepartments = ref<Department[]>([])
 const userImportFeedback = ref<ImportFeedback | null>(null)
 const departmentImportFeedback = ref<ImportFeedback | null>(null)
@@ -90,6 +91,17 @@ async function loadUsers() {
   finally { if (requestId === userQueryRequestId) loading.value = false }
 }
 
+
+function onUserSelectionChange(rows: User[]) { selectedUsers.value = rows }
+function exportUsers() {
+  // 以按钮点击时表格中的实际勾选结果为准，避免选中事件尚未同步时误导出全量数据。
+  const tableSelectedRows = userTable.value?.getSelectionRows?.() ?? []
+  const selectedRows = tableSelectedRows.length ? tableSelectedRows : selectedUsers.value
+  const selected = new URLSearchParams()
+  selectedRows.forEach(user => selected.append('ids', String(user.id)))
+  const suffix = selected.size ? `?${selected.toString()}` : ''
+  return download(`/system/users/export${suffix}`, '用户导出.xlsx')
+}
 
 function openUser() {
   Object.assign(userForm, { displayName: '', employeeNo: '', wecomUserId: '', departmentId: undefined })
@@ -198,9 +210,9 @@ function openDepartmentAccess(user: User) {
 }
 function toggleDepartmentAccess() { const ids = departments.value.filter(item => item.enabled).map(item => item.id); const selected = new Set(departmentAccessForm.departmentIds); const all = ids.length > 0 && ids.every(id => selected.has(id)); ids.forEach(id => all ? selected.delete(id) : selected.add(id)); departmentAccessForm.departmentIds = [...selected] }
 async function saveDepartmentAccess() { saving.value = true; try { const departmentNames = departmentAccessForm.departmentIds.map(id => departments.value.find(item => item.id === id)?.departmentName).filter((name): name is string => !!name); await http.put(`/system/users/${departmentAccessForm.userId}/departments`, { departmentIds: departmentAccessForm.departmentIds }); await loadUsers(); users.value = users.value.map(user => user.id === departmentAccessForm.userId ? { ...user, departmentAccessNames: departmentNames } : user); ElMessage.success('可访问科室已保存'); departmentAccessDialog.value = false } catch (error) { ElMessage.error(messageOf(error)) } finally { saving.value = false } }
-async function download(path: string, filename: string) {
+async function download(path: string, filename: string, params?: Record<string, string | undefined>) {
   try {
-    const response = await http.get(path, { responseType: 'blob' })
+    const response = await http.get(path, { params, responseType: 'blob' })
     const url = URL.createObjectURL(response.data)
     const link = document.createElement('a'); link.href = url; link.download = filename; link.click()
     URL.revokeObjectURL(url)
@@ -260,12 +272,12 @@ onMounted(initialize)
         </div>
         <div class="transfer-actions" v-permission="'PERM_API_USER_MANAGE'">
           <el-button @click="download('/system/users/template', '用户导入模板.xlsx')">用户模板导出</el-button>
-          <el-button @click="download('/system/users/export', '用户导出.xlsx')">用户导出</el-button>
+          <el-button @click="exportUsers">用户导出</el-button>
           <el-button type="primary" plain @click="pickFile('user-import-file')">用户导入</el-button><el-button :disabled="!selectedUsers.length" @click="batchUsers('enable')">批量启用</el-button><el-button :disabled="!selectedUsers.length" @click="batchUsers('disable')">批量停用</el-button><el-button :disabled="!selectedUsers.length" type="danger" @click="batchUsers('delete')">批量删除</el-button>
           <input id="user-import-file" type="file" accept=".xlsx" hidden @change="upload('/system/users/import', $event, initialize)" /><el-alert v-if="userImportFeedback" type="success" :closable="false" class="import-feedback" :title="`用户导入成功：${userImportFeedback.imported}/${userImportFeedback.total} 条`" :description="`文件：${userImportFeedback.filename}；成功 ${userImportFeedback.imported} 条，失败 ${userImportFeedback.failed} 条。`" />
         </div>
         <div v-loading="loading" class="mobile-only mobile-record-list admin-mobile-list"><el-empty v-if="!loading&&!users.length" description="暂无用户"/><article v-for="user in users" :key="user.id" class="mobile-record-card admin-user-card"><header><div><strong>{{user.displayName}}</strong><span>{{user.loginName}} · {{user.employeeNo}}</span></div><el-tag :type="user.enabled?'success':'info'">{{user.enabled?'启用':'停用'}}</el-tag></header><dl><div><dt>所属科室</dt><dd>{{user.departmentName||'—'}}</dd></div><div><dt>企微 ID</dt><dd>{{user.wecomUserId||'—'}}</dd></div><div class="admin-card-wide"><dt>角色</dt><dd><el-tag v-for="role in user.roles" :key="role.id" size="small" class="role-tag">{{role.roleName}}</el-tag><span v-if="!user.roles.length">未分配</span></dd></div><div class="admin-card-wide"><dt>科室权限</dt><dd>{{accessDepartmentPreview(user)}}<el-tooltip v-if="accessDepartments(user).length>3" :content="accessDepartmentFull(user)" placement="top"><span class="department-access-more">...</span></el-tooltip></dd></div></dl><footer><el-button link type="primary" @click="editUser(user)">编辑</el-button><el-button link type="primary" @click="openRoles(user)">分配角色</el-button><el-button link type="primary" @click="openDepartmentAccess(user)">分配科室</el-button><el-button link @click="resetPassword(user)">重置密码</el-button><el-button link :type="user.enabled?'danger':'primary'" @click="toggleUser(user)">{{user.enabled?'停用':'启用'}}</el-button></footer></article></div>
-        <el-table v-loading="loading" :data="users" stripe class="desktop-only" @selection-change="selectedUsers=$event"><el-table-column type="selection" width="48" />
+        <el-table ref="userTable" v-loading="loading" :data="users" stripe class="desktop-only" @selection-change="onUserSelectionChange"><el-table-column type="selection" width="48" />
           <el-table-column prop="displayName" label="姓名" width="120" />
           <el-table-column prop="employeeNo" label="工号" min-width="130" />
           <el-table-column prop="loginName" label="登录名" min-width="140" />

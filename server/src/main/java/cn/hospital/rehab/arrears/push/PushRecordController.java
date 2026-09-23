@@ -97,6 +97,18 @@ public class PushRecordController {
                         row.getString("error_code"), row.getString("error_message"))).list());
     }
 
+    @PreAuthorize("hasAnyAuthority('PERM_API_PUSH_RECORD_VIEW','ROLE_SYSTEM_ADMIN')")
+    @GetMapping("/{id}/content")
+    public ApiResponse<PushContent> content(Authentication auth, @PathVariable long id) {
+        DataScope scope = dataScopes.resolve(auth);
+        if (visibleTask(id, scope).isEmpty()) {
+            throw scope.allDepartments() ? new IllegalArgumentException("推送任务不存在")
+                    : new AccessDeniedException("无权查看该推送内容");
+        }
+        String content = jdbc.sql("SELECT content FROM push_task WHERE id=:id").param("id", id)
+                .query(String.class).optional().orElse("");
+        return ApiResponse.ok(new PushContent(PushContentFormatter.withSystemLink(content)));
+    }
     @PreAuthorize("hasAnyAuthority('PERM_API_PUSH_RETRY','ROLE_SYSTEM_ADMIN')")
     @PostMapping("/{id}/retry")
     @Transactional
@@ -257,6 +269,8 @@ public class PushRecordController {
                              String contentSummary, String status, String displayStatus, String triggerType,
                              OffsetDateTime scheduledAt, OffsetDateTime sentAt, OffsetDateTime pushTime,
                              int retryCount, String lastError) {}
+
+    public record PushContent(String content) {}
 
     public record Attempt(int attemptNo, String triggerType, OffsetDateTime scheduledAt,
                           OffsetDateTime attemptedAt, String recipientName, String recipientWecomId,

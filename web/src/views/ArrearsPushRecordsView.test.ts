@@ -241,6 +241,22 @@ describe('ArrearsPushRecordsView 阶段5', () => {
     wrapper.unmount()
   })
 
+  it('可按记录加载并展示完整推送内容', async () => {
+    const fullContent = '第一行完整推送内容\n第二行患者提醒内容，不能被列表摘要截断。'
+    mocks.get.mockImplementation((url: string) => Promise.resolve({
+      data: { data: url.endsWith('/content') ? { content: fullContent } : page },
+    }))
+    const wrapper = render()
+    await flushPromises()
+
+    await wrapper.findAll('button').find(item => item.text() === '推送内容详情')!.trigger('click')
+    await flushPromises()
+
+    expect(mocks.get).toHaveBeenLastCalledWith('/arrears/push-records/101/content')
+    expect(document.body.textContent).toContain('第一行完整推送内容')
+    expect(document.body.textContent).toContain('第二行患者提醒内容，不能被列表摘要截断。')
+    wrapper.unmount()
+  })
   it('预出院入口复用页面并携带预出院业务类型查询', async () => {
     mocks.routeMeta.businessType = 'DISCHARGE'
     const wrapper = render()

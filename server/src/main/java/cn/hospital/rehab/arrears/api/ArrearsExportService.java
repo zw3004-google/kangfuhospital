@@ -40,7 +40,7 @@ public class ArrearsExportService {
         return List.of(text(r.inpatientNo()), String.valueOf(r.admissionTimes()), text(r.patientName()), text(first(r.wardName(), r.departmentName())),
                 text(r.feeType()), arrearsType(r.arrearsType()), text(r.doctorName()), text(r.doctorEmployeeNo()), date(r.admittedAt()), r.dischargedAt() == null ? "未出区" : date(r.dischargedAt()),
                 money(r.totalCost()), money(r.prepaidAmount()), inpatient ? "—" : money(r.medicalInsurancePaid()), inpatient ? "—" : money(r.personalAccountPaid()),
-                money(r.finalRequiredDeposit()), money(r.arrearsAmount()), text(r.arrearsReason()), progress(r.recoveryProgress()), text(r.lastOperatedBy()), time(r.sourceUpdatedAt()));
+                money(r.finalRequiredDeposit()), arrearsMoney(r.arrearsAmount()), text(r.arrearsReason()), progress(r.recoveryProgress()), text(r.lastOperatedBy()), time(r.sourceUpdatedAt()));
     }
 
     private byte[] csv(List<List<String>> rows) {
@@ -56,6 +56,7 @@ public class ArrearsExportService {
     }
 
     private static String money(BigDecimal value) { return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP).toPlainString(); }
+    private static String arrearsMoney(BigDecimal value) { return money(value == null ? BigDecimal.ZERO : value.abs()); }
     private static String date(OffsetDateTime value) { return value == null ? "—" : value.atZoneSameInstant(EXPORT_ZONE).format(DATE); }
     private static String time(OffsetDateTime value) { return value == null ? "—" : value.atZoneSameInstant(EXPORT_ZONE).format(TIME); }
     private static String text(String value) { return value == null || value.isBlank() ? "—" : value; }

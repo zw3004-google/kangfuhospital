@@ -24,8 +24,8 @@ public class UserTransferController {
     }
 
     @GetMapping("/export")
-    public void export(HttpServletResponse response) throws IOException {
-        ExcelDownload.write(response, "用户导出.xlsx", service.exportAll());
+    public void export(@RequestParam(value = "ids", required = false) java.util.List<Long> ids, HttpServletResponse response) throws IOException {
+        ExcelDownload.write(response, "用户导出.xlsx", service.export(ids));
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

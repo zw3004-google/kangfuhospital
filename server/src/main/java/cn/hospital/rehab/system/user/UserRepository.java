@@ -50,6 +50,15 @@ public class UserRepository {
                 """).query(this::map).list();
     }
 
+    public List<UserSummary> findByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return jdbc.sql("""
+                SELECT u.*, d.department_name FROM sys_user u
+                LEFT JOIN sys_department d ON d.id=u.department_id
+                WHERE u.id IN (:ids)
+                ORDER BY d.department_code, u.employee_no, u.id
+                """).param("ids", ids).query(this::map).list();
+    }
     public boolean loginNameExists(String loginName) {
         return jdbc.sql("SELECT EXISTS(SELECT 1 FROM sys_user WHERE login_name=:name)")
                 .param("name", loginName).query(Boolean.class).single();

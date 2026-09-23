@@ -21,7 +21,7 @@ class ArrearsNoticeServiceTest {
         assertThat(preview.batchNo()).isEqualTo("ARR-20260901080000");
         assertThat(preview.totalAmount()).isEqualByComparingTo("200000");
         assertThat(preview.departments()).containsExactlyElementsOf(departments);
-        assertThat(preview.systemLink()).isEqualTo("http://oa.kfyy.local/arrears");
+        assertThat(preview.systemLink()).isEqualTo("http://172.16.196.112");
         assertThat(preview.content()).contains(
                 "截至 2026-09-01 08:00，全院患者欠费合计 20.00万 元",
                 "1. 神经康复一科：18.00万 元（在院 10.00万 + 出院已结算 3.00万 + 出院未结算 5.00万）",

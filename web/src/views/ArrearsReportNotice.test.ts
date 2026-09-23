@@ -20,8 +20,8 @@ const report = {
 const preview = {
   batchNo: 'ARR-20260901080000', dataAsOf: '2026-09-01T08:00:00+08:00', scopeLabel: '全院', totalAmount: 200000,
   departments: [{ department: '神经康复一科', total: 200000, inpatient: 100000, dischargedSettled: 30000, dischargedUnsettled: 70000 }],
-  systemLink: 'http://oa.kfyy.local/arrears',
-  content: '截至 2026-09-01 08:00，全院患者欠费合计 20.00万 元\n1. 神经康复一科：20.00万 元\nhttp://oa.kfyy.local/arrears',
+  systemLink: 'http://172.16.196.112',
+  content: '截至 2026-09-01 08:00，全院患者欠费合计 20.00万 元\n1. 神经康复一科：20.00万 元\nhttp://172.16.196.112',
 }
 const render = () => mount(ArrearsReportView, { attachTo: document.body, global: { plugins: [ElementPlus] } })
 
@@ -45,7 +45,7 @@ describe('ArrearsReportView 阶段3通报内容展示', () => {
 
     expect(getMock).toHaveBeenNthCalledWith(2, '/arrears/report/notice-preview')
     expect(document.body.textContent).toContain('截至 2026-09-01 08:00，全院患者欠费合计 20.00万 元')
-    expect(document.body.textContent).toContain('http://oa.kfyy.local/arrears')
+    expect(document.body.textContent).toContain('http://172.16.196.112')
     expect(document.body.textContent).not.toContain('确认推送')
     expect(document.body.querySelector('.notice-preview-content')).toBeTruthy()
     expect(document.body.querySelector('select')).toBeNull()

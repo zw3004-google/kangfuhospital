@@ -74,6 +74,8 @@ a { color: inherit; text-decoration: none; }
 .push-record-table { width: 100%; }
 .push-trace-note { margin-top: 18px; padding: 12px 15px; border-radius: 8px; color: #67768b; background: #f7f9fc; font-size: 13px; line-height: 1.7; }
 .push-attempt-wrap { min-height: 130px; }
+.push-content-detail { min-height: 130px; max-height: 60vh; overflow: auto; padding: 4px 2px; }
+.push-content-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.75; color: #344054; }
 .dialog-form { margin-top: 20px; }
 .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .role-grid .el-checkbox { margin: 0; width: 100%; }

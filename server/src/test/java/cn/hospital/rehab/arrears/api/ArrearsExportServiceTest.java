@@ -68,7 +68,7 @@ class ArrearsExportServiceTest {
         return new ArrearsRecordSummary(1, "ZY001", 2, "张三", "康复科", "康复一病区", "自费", "INPATIENT", "李医生", "D001",
                 OffsetDateTime.parse("2026-08-01T08:00:00+08:00"), null, new BigDecimal("1000"), new BigDecimal("200"),
                 new BigDecimal("30"), new BigDecimal("20"), new BigDecimal("800"), new BigDecimal("800"), new BigDecimal("-600"),
-                new BigDecimal("600"), true, "UNPAID", "家属,稍后缴费", "NEGOTIATING", "NOT_STARTED", null, "财务员",
+                new BigDecimal("-600"), true, "UNPAID", "家属,稍后缴费", "NEGOTIATING", "NOT_STARTED", null, "财务员",
                 OffsetDateTime.parse("2026-09-01T10:20:30+08:00"));
     }
 }

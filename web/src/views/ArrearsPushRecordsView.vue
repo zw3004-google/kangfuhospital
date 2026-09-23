@@ -28,6 +28,7 @@ interface PushRecordResponse extends Partial<PushRecord> {
   content?: string
   status: string
 }
+interface PushContent { content: string }
 interface Attempt {
   attemptNo: number
   triggerType: string
@@ -56,6 +57,10 @@ const loading = ref(false)
 const retryingId = ref<number | null>(null)
 const batchRetrying = ref(false)
 const dialog = ref(false)
+const contentDialog = ref(false)
+const contentLoading = ref(false)
+const contentRow = ref<PushRecord | null>(null)
+const content = ref('')
 const attemptsLoading = ref(false)
 const attempts = ref<Attempt[]>([])
 const current = ref<PushRecord | null>(null)
@@ -146,6 +151,19 @@ const showAttempts = async (row: PushRecord) => {
   }
 }
 
+const showContent = async (row: PushRecord) => {
+  contentRow.value = row
+  content.value = ''
+  contentDialog.value = true
+  contentLoading.value = true
+  try {
+    content.value = (await http.get<ApiResponse<PushContent>>(`/arrears/push-records/${row.id}/content`)).data.data.content || '—'
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '推送内容加载失败')
+  } finally {
+    contentLoading.value = false
+  }
+}
 const retry = async (row: PushRecord) => {
   try {
     await ElMessageBox.confirm(
@@ -238,7 +256,7 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
         >批量重发<span v-if="selectedRows.length">（{{ selectedRows.length }}）</span></el-button>
       </div>
 
-      <div v-loading="loading" class="mobile-only mobile-record-list push-mobile-list"><el-empty v-if="!loading&&!rows.length" description="暂无推送记录"/><article v-for="row in rows" :key="row.id" class="mobile-record-card"><header><div><strong>{{row.recipientName||'—'}}</strong><span>{{fmt(row.pushTime)}}</span></div><el-tag :type="statusTagType(row.status)" effect="light">{{row.displayStatus}}</el-tag></header><p class="push-mobile-content">{{row.contentSummary}}</p><dl><div><dt>触发方式</dt><dd>{{triggerLabel(row.triggerType)}}</dd></div><div><dt>重试次数</dt><dd>{{row.retryCount}}</dd></div></dl><p v-if="row.lastError" class="mobile-record-alert">{{row.lastError}}</p><footer><el-button link type="primary" @click="showAttempts(row)">尝试详情</el-button></footer></article></div>
+      <div v-loading="loading" class="mobile-only mobile-record-list push-mobile-list"><el-empty v-if="!loading&&!rows.length" description="暂无推送记录"/><article v-for="row in rows" :key="row.id" class="mobile-record-card"><header><div><strong>{{row.recipientName||'—'}}</strong><span>{{fmt(row.pushTime)}}</span></div><el-tag :type="statusTagType(row.status)" effect="light">{{row.displayStatus}}</el-tag></header><p class="push-mobile-content">{{row.contentSummary}}</p><dl><div><dt>触发方式</dt><dd>{{triggerLabel(row.triggerType)}}</dd></div><div><dt>重试次数</dt><dd>{{row.retryCount}}</dd></div></dl><p v-if="row.lastError" class="mobile-record-alert">{{row.lastError}}</p><footer><el-button link type="primary" @click="showContent(row)">推送内容详情</el-button><el-button link type="primary" @click="showAttempts(row)">尝试详情</el-button></footer></article></div>
       <el-table
         v-loading="loading"
         :data="rows"
@@ -267,8 +285,9 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
         <el-table-column prop="lastError" label="最近错误" min-width="180" show-overflow-tooltip>
           <template #default="scope"><span :class="{ 'danger-text': scope.row.lastError }">{{ scope.row.lastError || '—' }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="245" fixed="right">
           <template #default="scope">
+            <el-button link type="primary" @click="showContent(scope.row)">推送内容详情</el-button>
             <el-button link type="primary" @click="showAttempts(scope.row)">尝试详情</el-button>
             <el-button
               v-if="canRetry && scope.row.status === 'FAILED'"
@@ -292,6 +311,9 @@ watch(businessType, () => { page.value = 1; void load() }, { immediate: true })
       <div class="push-trace-note">所有推送均保留接收人、推送时间、实际内容、发送结果及每次自动重试或人工重发记录。批量重发仅处理当前页明确勾选的失败任务。</div>
     </div>
 
+    <el-dialog v-model="contentDialog" :title="`${businessLabel}推送内容 · 任务编号 ${contentRow?.id || ''}`" width="720px" class="mobile-full-dialog">
+      <div v-loading="contentLoading" class="push-content-detail"><pre>{{ content || '—' }}</pre></div>
+    </el-dialog>
     <el-dialog v-model="dialog" :title="`发送尝试 · 任务编号 ${current?.id || ''}`" width="78%" class="mobile-full-dialog">
       <div v-loading="attemptsLoading" class="push-attempt-wrap">
         <el-empty v-if="!attemptsLoading && !attempts.length" description="尚无发送尝试" />

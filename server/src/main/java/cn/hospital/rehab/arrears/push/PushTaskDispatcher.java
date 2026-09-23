@@ -29,7 +29,7 @@ public class PushTaskDispatcher {
             r.getString("content"),r.getInt("retry_count"),r.getObject("scheduled_at",OffsetDateTime.class),r.getString("next_trigger_type"),r.getInt("attempt_no"))).list();}
 
     private void send(Task task){
-        int cycleAttempt=task.retry()+1;int attempt=task.attemptNo();WeComClient.SendResult result=weCom.send(task.userId(),task.content());
+        int cycleAttempt=task.retry()+1;int attempt=task.attemptNo();WeComClient.SendResult result=weCom.send(task.userId(),PushContentFormatter.withSystemLink(task.content()));
         jdbc.sql("""
                 INSERT INTO push_attempt(task_id,attempt_no,trigger_type,scheduled_at,recipient_wecom_id,recipient_name,retry_count,status,error_code,error_message)
                 VALUES (:task,:attempt,:trigger,:scheduled,:recipientId,:recipientName,:retry,:status,:errorCode,:error)

@@ -56,7 +56,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/actuator/health", "/api/system/info", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/arrears/records/export").hasAnyAuthority("PERM_API_ARREARS_EXPORT", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/arrears/report/export").hasAnyAuthority("PERM_API_ARREARS_EXPORT", "ROLE_SYSTEM_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/arrears/push-records", "/api/arrears/push-records/*/attempts").hasAnyAuthority("PERM_API_PUSH_RECORD_VIEW", "ROLE_SYSTEM_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/arrears/push-records", "/api/arrears/push-records/*/attempts", "/api/arrears/push-records/*/content").hasAnyAuthority("PERM_API_PUSH_RECORD_VIEW", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/arrears/push-records/retry-batch", "/api/arrears/push-records/*/retry").hasAnyAuthority("PERM_API_PUSH_RETRY", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/arrears/records", "/api/arrears/records/filter-options", "/api/arrears/records/summary", "/api/arrears/records/*/history", "/api/arrears/report/**").hasAnyAuthority("PERM_API_ARREARS_REPORT", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/arrears/records/**").hasAnyAuthority("PERM_API_ARREARS_EDIT", "ROLE_SYSTEM_ADMIN")

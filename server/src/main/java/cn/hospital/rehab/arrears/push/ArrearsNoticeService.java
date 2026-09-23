@@ -17,7 +17,7 @@ import java.util.Set;
 public class ArrearsNoticeService {
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    public static final String SYSTEM_LINK = "http://oa.kfyy.local/arrears";
+    public static final String SYSTEM_LINK = PushContentFormatter.SYSTEM_LINK;
     private final JdbcClient jdbc;
 
     public ArrearsNoticeService(JdbcClient jdbc) { this.jdbc = jdbc; }
@@ -71,9 +71,9 @@ public class ArrearsNoticeService {
                     .append("万 + 出院已结算 ").append(wan(item.dischargedSettled()))
                     .append("万 + 出院未结算 ").append(wan(item.dischargedUnsettled())).append("万）\n");
         }
-        content.append("请各位科室主任、主管医生及时关注本科室欠费患者，落实催缴。\n\n")
-                .append("详情请点击康复医院运营管理系统查看（院内内网访问）：\n").append(SYSTEM_LINK);
-        return new NoticePreview(batchNo, dataAsOf, scopeLabel, total, ranking, SYSTEM_LINK, content.toString());
+        content.append("请各位科室主任、主管医生及时关注本科室欠费患者，落实催缴。");
+        return new NoticePreview(batchNo, dataAsOf, scopeLabel, total, ranking, SYSTEM_LINK,
+                PushContentFormatter.withSystemLink(content.toString()));
     }
 
     static String wan(BigDecimal amount) {

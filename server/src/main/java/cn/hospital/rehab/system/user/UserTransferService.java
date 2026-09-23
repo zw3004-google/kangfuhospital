@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserTransferService {
@@ -26,16 +27,22 @@ public class UserTransferService {
 
     public byte[] template() { return workbook(List.of(), UserImportRow.class, "用户导入模板"); }
 
-    public byte[] exportAll() {
-        List<UserImportRow> rows = repository.findAll().stream().map(user -> {
-            UserImportRow row = new UserImportRow();
+    public byte[] exportAll() { return export(null); }
+
+    public byte[] export(java.util.Collection<Long> ids) {
+        List<UserExportRow> rows = (ids == null || ids.isEmpty() ? repository.findAll() : repository.findByIds(ids)).stream().map(user -> {
+            UserExportRow row = new UserExportRow();
             row.displayName = user.displayName();
             row.employeeNo = user.employeeNo();
+            row.loginName = user.loginName();
             row.wecomUserId = user.wecomUserId();
-            row.departmentCode = departments.findById(user.departmentId()).map(Department::departmentCode).orElse("");
+            row.departmentName = user.departmentName();
+            row.roleNames = user.roles().stream().map(role -> role.roleName()).collect(Collectors.joining("、"));
+            row.departmentAccessNames = String.join("、", user.departmentAccessNames());
+            row.status = user.enabled() ? "启用" : "停用";
             return row;
         }).toList();
-        return workbook(rows, UserImportRow.class, "用户");
+        return workbook(rows, UserExportRow.class, "用户");
     }
 
     @Transactional
