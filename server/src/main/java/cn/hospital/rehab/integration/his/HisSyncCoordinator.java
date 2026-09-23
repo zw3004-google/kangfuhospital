@@ -119,6 +119,7 @@ public class HisSyncCoordinator {
             target.gender=HisFields.text(row,"性别","患者性别","性别名称","gender","xb","xbmc");
             target.wardName=HisFields.text(row,"所属科室","住院病区","departmentName","wardName","ksmc");
             target.primaryDiagnosis=HisFields.text(row,"主诊断","主要诊断","诊断名称","primaryDiagnosis","zzd","zdmc","ryzd");
+            target.secondaryDiagnosis=HisFields.text(row,"次要诊断","副诊断","其他诊断","secondaryDiagnosis","fzd","fzdmc","cyzd");
             target.doctorName=HisFields.text(row,"主管医生","doctorName","ysxm");
             target.doctorEmployeeNo=HisFields.text(row,"工号","医生工号","doctorEmployeeNo","ysgh");
             target.admittedAt=HisFields.text(row,"入院日期","入区日期","admittedAt","ryrq");

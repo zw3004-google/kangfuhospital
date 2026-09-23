@@ -29,6 +29,14 @@ class HisSyncCoordinatorPaginationTest {
                 .containsExactly("A001","A002");
     }
 
+    @Test
+    void mapsSecondaryDiagnosisFromHisPatientInfo() {
+        var rows = HisSyncCoordinator.mapPatients(List.of(Map.of(
+                "住院号", "A003", "住院次数", 1, "主诊断", "脑卒中", "次要诊断", "高血压")));
+
+        assertThat(rows.getFirst().primaryDiagnosis).isEqualTo("脑卒中");
+        assertThat(rows.getFirst().secondaryDiagnosis).isEqualTo("高血压");
+    }
     private static HisGatewayClient.Page page(int page,int size,String inpatientNo) {
         return new HisGatewayClient.Page(List.of(Map.of("住院号",inpatientNo,"住院次数",1)),1,page,size);
     }

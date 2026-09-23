@@ -39,7 +39,7 @@ class DischargeExportControllerTest {
         String csv=new String(response.getBody(), StandardCharsets.UTF_8);
 
         verify(repository).export("张",12L,"OUTPATIENT",start,end,false,"OUTPATIENT",scope);
-        assertThat(csv).startsWith("\uFEFF患者姓名,患者性别,住院号,住院次数,所属科室,入院时间,主诊断,主管医生");
+        assertThat(csv).startsWith("\uFEFF患者姓名,患者性别,住院号,住院次数,所属科室,入院时间,主诊断,次要诊断,主管医生");
         assertThat(csv).contains("预约营养会诊时间,预约居家康复时间,最近随访时间,状态,异常编码,异常原因");
         assertThat(csv).contains("张三,男,ZY001,1,康复一科");
         assertThat(response.getHeaders().getContentDisposition().toString()).contains("UTF-8");
