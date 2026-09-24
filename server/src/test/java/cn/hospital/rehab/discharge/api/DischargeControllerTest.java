@@ -44,6 +44,16 @@ class DischargeControllerTest {
     }
 
     @Test
+    void pagePassesSpecialPatientCategoryAndResolvedScope() {
+        PageResult<DischargeSummary> expected = new PageResult<>(List.of(), 0, 1, 50);
+        when(scopes.resolve(authentication)).thenReturn(scope);
+        when(repository.page(null, null, null, null, null, null, "SPECIAL_PATIENT", scope, 1, 50))
+                .thenReturn(expected);
+
+        assertThat(controller.page(authentication, null, null, null, null, null, null, "SPECIAL_PATIENT", 1, 50).data())
+                .isSameAs(expected);
+    }
+    @Test
     void summaryUsesSameFiltersAndScope() {
         when(scopes.resolve(authentication)).thenReturn(scope);
         DischargeSummaryStats expected = new DischargeSummaryStats(10,8,3,4,2,3,5);

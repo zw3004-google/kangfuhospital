@@ -153,7 +153,8 @@ public class DischargeRepository {
                         (:category='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation cn WHERE cn.encounter_id=e.id AND cn.deleted=false)) OR
                         (:category='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation ch WHERE ch.encounter_id=e.id AND ch.deleted=false)) OR
                         (:category='OUTPATIENT' AND d.outpatient_appointment_at IS NOT NULL) OR
-                        (:category='ABNORMAL' AND COALESCE(d.abnormal_codes,'')<>''))
+                        (:category='ABNORMAL' AND COALESCE(d.abnormal_codes,'')<>'') OR
+                        (:category='SPECIAL_PATIENT' AND d.is_special_patient=TRUE))
                    AND (:timeType='' OR
                         (:timeType='ADMITTED' AND e.admitted_at >= COALESCE(:startAt,e.admitted_at) AND e.admitted_at < COALESCE(:endAt,e.admitted_at + INTERVAL '1 microsecond')) OR
                         (:timeType='PLANNED_DISCHARGE' AND d.planned_discharge_at >= COALESCE(:startAt,d.planned_discharge_at) AND d.planned_discharge_at < COALESCE(:endAt,d.planned_discharge_at + INTERVAL '1 microsecond')) OR
@@ -162,7 +163,7 @@ public class DischargeRepository {
                         (:timeType='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation n WHERE n.encounter_id=e.id AND n.deleted=false AND n.appointment_at >= COALESCE(:startAt,n.appointment_at) AND n.appointment_at < COALESCE(:endAt,n.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation h WHERE h.encounter_id=e.id AND h.deleted=false AND h.appointment_at >= COALESCE(:startAt,h.appointment_at) AND h.appointment_at < COALESCE(:endAt,h.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='FOLLOW_UP' AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) >= COALESCE(:startAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at)) AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) < COALESCE(:endAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) + INTERVAL '1 microsecond')))
-                """ + scope + " ORDER BY CASE WHEN :category='BOARD' THEN d.planned_discharge_at END DESC NULLS LAST,e.admitted_at DESC NULLS LAST LIMIT :limit OFFSET :offset";
+                """ + scope + " ORDER BY CASE WHEN :category='BOARD' THEN d.planned_discharge_at END ASC NULLS LAST,e.admitted_at DESC NULLS LAST LIMIT :limit OFFSET :offset";
     }
 
     private String buildCountSql(String scope) {
@@ -177,7 +178,8 @@ public class DischargeRepository {
                         (:category='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation cn WHERE cn.encounter_id=e.id AND cn.deleted=false)) OR
                         (:category='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation ch WHERE ch.encounter_id=e.id AND ch.deleted=false)) OR
                         (:category='OUTPATIENT' AND d.outpatient_appointment_at IS NOT NULL) OR
-                        (:category='ABNORMAL' AND COALESCE(d.abnormal_codes,'')<>''))
+                        (:category='ABNORMAL' AND COALESCE(d.abnormal_codes,'')<>'') OR
+                        (:category='SPECIAL_PATIENT' AND d.is_special_patient=TRUE))
                    AND (:timeType='' OR
                         (:timeType='ADMITTED' AND e.admitted_at >= COALESCE(:startAt,e.admitted_at) AND e.admitted_at < COALESCE(:endAt,e.admitted_at + INTERVAL '1 microsecond')) OR
                         (:timeType='PLANNED_DISCHARGE' AND d.planned_discharge_at >= COALESCE(:startAt,d.planned_discharge_at) AND d.planned_discharge_at < COALESCE(:endAt,d.planned_discharge_at + INTERVAL '1 microsecond')) OR
@@ -265,7 +267,7 @@ public class DischargeRepository {
     private static String normalizeCategory(String category){
         if(category==null||category.isBlank())return "";
         String value=category.trim().toUpperCase();
-        if(!Set.of("BOARD","FOLLOW_UP","NUTRITION","HOME_REHAB","OUTPATIENT","ABNORMAL").contains(value))
+        if(!Set.of("BOARD","FOLLOW_UP","NUTRITION","HOME_REHAB","OUTPATIENT","ABNORMAL","SPECIAL_PATIENT").contains(value))
             throw new IllegalArgumentException("不支持的统计明细类型");
         return value;
     }

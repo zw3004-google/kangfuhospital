@@ -138,7 +138,7 @@ describe('DischargeAnalysisView 阶段1', () => {
     const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
 
-    for (const label of ['预出院看板', '院后管理列表', '营养会诊', '居家康复', '复诊预约', '异常列表']) expect(wrapper.text()).toContain(label)
+    for (const label of ['预出院看板', '院后管理列表', '营养会诊', '居家康复', '复诊预约', '异常列表', '特殊患者看板']) expect(wrapper.text()).toContain(label)
     expect(getMock).toHaveBeenCalledWith('/discharge/records', { params: expect.objectContaining({ category: 'BOARD', page: 1, pageSize: 50 }) })
     wrapper.findComponent({ name: 'ElTabs' }).vm.$emit('tab-change', 'NUTRITION')
     await flushPromises()
@@ -162,6 +162,37 @@ describe('DischargeAnalysisView 阶段1', () => {
     expect(wrapper.text()).toContain('2026')
   })
 
+  it('预出院看板将较早的预计出院时间排在前面', async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })
+      if (url.endsWith('filter-options')) return Promise.resolve({ data: { data: [] } })
+      return Promise.resolve({ data: { data: { items: [
+        { id: 2, patientName: '较晚出院患者', inpatientNo: 'ZY-LATE', admissionTimes: 1, plannedDischargeAt: '2026-09-08T10:00:00+08:00', abnormalCodes: [] },
+        { id: 1, patientName: '较早出院患者', inpatientNo: 'ZY-EARLY', admissionTimes: 1, plannedDischargeAt: '2026-09-03T10:00:00+08:00', abnormalCodes: [] },
+      ], total: 2 } } })
+    })
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+
+    expect(wrapper.text().indexOf('较早出院患者')).toBeLessThan(wrapper.text().indexOf('较晚出院患者'))
+  })
+  it('特殊患者看板仅请求特殊患者分类并展示特殊原因', async () => {
+    getMock.mockImplementation((url: string, config?: { params?: { category?: string } }) => {
+      if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })
+      if (url.endsWith('filter-options')) return Promise.resolve({ data: { data: [] } })
+      const item = { id: 3, patientName: '特殊患者', gender: '男', inpatientNo: 'ZY-SPECIAL-001', admissionTimes: 1, departmentName: '康复科', doctorName: '李医生', secondaryDiagnosis: '高血压', specialPatient: true, specialReason: '需长期观察', abnormalCodes: [] }
+      return Promise.resolve({ data: { data: { items: config?.params?.category === 'SPECIAL_PATIENT' ? [item] : [], total: config?.params?.category === 'SPECIAL_PATIENT' ? 1 : 0 } } })
+    })
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    wrapper.findComponent({ name: 'ElTabs' }).vm.$emit('tab-change', 'SPECIAL_PATIENT')
+    await flushPromises()
+
+    expect(getMock).toHaveBeenCalledWith('/discharge/records', { params: expect.objectContaining({ category: 'SPECIAL_PATIENT', page: 1, pageSize: 50 }) })
+    expect(wrapper.text()).toContain('次要诊断')
+    expect(wrapper.text()).toContain('是否特殊患者')
+    expect(wrapper.text()).toContain('需长期观察')
+  })
   it('将科室、时间、日期和关键词同时用于查询与导出', async () => {
     const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
     const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
