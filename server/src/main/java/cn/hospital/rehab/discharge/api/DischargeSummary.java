@@ -30,6 +30,7 @@ public record DischargeSummary(
         List<String> abnormalCodes,
         String abnormalReason,
         Boolean specialPatient,
+        Boolean turnoverPatient,
         String specialReason,
         Boolean followUpRequired,
         String followUpDay7,
@@ -48,7 +49,7 @@ public record DischargeSummary(
         this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,departmentName,primaryDiagnosis,null,doctorName,doctorEmployeeNo,admittedAt,
                 plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
                 outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
-                latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,specialReason,followUpRequired,
+                latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,null,specialReason,followUpRequired,
                 followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null,null);
     }
 
@@ -62,7 +63,7 @@ public record DischargeSummary(
         this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,departmentName,primaryDiagnosis,null,doctorName,null,admittedAt,
                 plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
                 outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
-                latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,specialReason,followUpRequired,
+                latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,null,specialReason,followUpRequired,
                 followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null,null);
     }
 }

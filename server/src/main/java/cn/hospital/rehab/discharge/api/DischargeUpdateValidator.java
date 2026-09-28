@@ -6,6 +6,8 @@ final class DischargeUpdateValidator {
     private DischargeUpdateValidator() {}
 
     static void validateBefore(UpdateDischargeRequest request, DischargeSummary current) {
+        if (Boolean.TRUE.equals(request.specialPatient()) && Boolean.TRUE.equals(request.turnoverPatient()))
+            throw new IllegalArgumentException("患者不能同时设为特殊患者和周转患者");
         if (Boolean.TRUE.equals(request.specialPatient()) && blank(request.specialReason()))
             throw new IllegalArgumentException("特殊患者必须填写特殊原因");
         if (current.actualDischargeAt()!=null && request.plannedDischargeAt()!=null &&

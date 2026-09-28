@@ -102,7 +102,7 @@ public class DischargeRepository {
         var query = jdbc.sql("""
                 UPDATE discharge_record d SET planned_discharge_at=COALESCE(:planned,d.planned_discharge_at),
                 planned_discharge_updated_at=CASE WHEN CAST(:planned AS TIMESTAMPTZ) IS NULL THEN d.planned_discharge_updated_at ELSE CURRENT_TIMESTAMP END,
-                is_special_patient=COALESCE(:special,d.is_special_patient),
+                is_special_patient=COALESCE(:special,d.is_special_patient), is_turnover_patient=COALESCE(:turnover,d.is_turnover_patient),
                 special_reason=COALESCE(:specialReason,d.special_reason), abnormal_reason=COALESCE(:abnormalReason,d.abnormal_reason),
                 follow_up_required=COALESCE(:followUp,d.follow_up_required), follow_up_day7=COALESCE(:day7,d.follow_up_day7),
                 follow_up_day30=COALESCE(:day30,d.follow_up_day30), follow_up_day60=COALESCE(:day60,d.follow_up_day60),
@@ -117,7 +117,7 @@ public class DischargeRepository {
                   AND (CAST(:expectedUpdatedAt AS TIMESTAMPTZ) IS NULL OR d.updated_at=:expectedUpdatedAt)
                 """ + buildScopeWhere(scope))
                 .param("planned", parseDate(request.plannedDischargeAt()))
-                .param("special", request.specialPatient())
+                .param("special", request.specialPatient()).param("turnover", request.turnoverPatient())
                 .param("specialReason", request.specialReason()).param("abnormalReason", request.abnormalReason())
                 .param("followUp", request.followUpRequired()).param("day7", request.followUpDay7())
                 .param("day30", request.followUpDay30()).param("day60", request.followUpDay60())
@@ -236,7 +236,7 @@ public class DischargeRepository {
 
     DischargeSummary map(ResultSet r, int row) throws SQLException {
         OffsetDateTime planned=r.getObject("planned_discharge_at",OffsetDateTime.class), actual=r.getObject("actual_discharge_at",OffsetDateTime.class);
-        return new DischargeSummary(r.getLong("id"),r.getLong("encounter_id"),r.getString("inpatient_no"),r.getInt("admission_times"),r.getString("patient_name"),r.getString("gender"),r.getString("department_name"),r.getString("primary_diagnosis"),r.getString("secondary_diagnosis"),r.getString("doctor_name_source"),r.getString("doctor_employee_no"),r.getObject("admitted_at",OffsetDateTime.class),planned,actual,r.getObject("outpatient_appointment_at",OffsetDateTime.class),(Boolean)r.getObject("outpatient_arrived"),r.getObject("outpatient_arrival_at",OffsetDateTime.class),r.getString("outpatient_reporter"),r.getString("outpatient_no_show_reason"),r.getObject("latest_nutrition_appointment_at",OffsetDateTime.class),r.getObject("latest_home_rehab_appointment_at",OffsetDateTime.class),r.getObject("latest_follow_up_at",OffsetDateTime.class),planned==null?"未填报":actual==null?"已填报":"已出院",parseAbnormalCodes(r.getString("abnormal_codes")),r.getString("abnormal_reason"),r.getBoolean("is_special_patient"),r.getString("special_reason"),(Boolean)r.getObject("follow_up_required"),r.getString("follow_up_day7"),r.getString("follow_up_day30"),r.getString("follow_up_day60"),r.getString("follow_up_details"),r.getString("medical_insurance_type"),r.getObject("updated_at",OffsetDateTime.class));
+        return new DischargeSummary(r.getLong("id"),r.getLong("encounter_id"),r.getString("inpatient_no"),r.getInt("admission_times"),r.getString("patient_name"),r.getString("gender"),r.getString("department_name"),r.getString("primary_diagnosis"),r.getString("secondary_diagnosis"),r.getString("doctor_name_source"),r.getString("doctor_employee_no"),r.getObject("admitted_at",OffsetDateTime.class),planned,actual,r.getObject("outpatient_appointment_at",OffsetDateTime.class),(Boolean)r.getObject("outpatient_arrived"),r.getObject("outpatient_arrival_at",OffsetDateTime.class),r.getString("outpatient_reporter"),r.getString("outpatient_no_show_reason"),r.getObject("latest_nutrition_appointment_at",OffsetDateTime.class),r.getObject("latest_home_rehab_appointment_at",OffsetDateTime.class),r.getObject("latest_follow_up_at",OffsetDateTime.class),planned==null?"未填报":actual==null?"已填报":"已出院",parseAbnormalCodes(r.getString("abnormal_codes")),r.getString("abnormal_reason"),r.getBoolean("is_special_patient"),r.getBoolean("is_turnover_patient"),r.getString("special_reason"),(Boolean)r.getObject("follow_up_required"),r.getString("follow_up_day7"),r.getString("follow_up_day30"),r.getString("follow_up_day60"),r.getString("follow_up_details"),r.getString("medical_insurance_type"),r.getObject("updated_at",OffsetDateTime.class));
     }
 
     static List<String> parseAbnormalCodes(String value) {

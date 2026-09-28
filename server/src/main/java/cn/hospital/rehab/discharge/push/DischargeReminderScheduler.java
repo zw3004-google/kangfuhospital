@@ -11,6 +11,8 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Component
 public class DischargeReminderScheduler {
@@ -30,8 +32,44 @@ public class DischargeReminderScheduler {
         createConsultation("HOME", today);
         createFollowUp(today);
         createAbnormalReport(today);
+        createPresidentOperationReport(today);
     }
 
+    void createPresidentOperationReport(LocalDate day) {
+        OffsetDateTime cutoff = day.atTime(DAILY_REMINDER_TIME).atZone(SHANGHAI).toOffsetDateTime();
+        List<DepartmentPatientCount> counts = jdbc.sql("""
+                SELECT COALESCE(dpt.department_name, '未分配') AS department_name, COUNT(*) AS patient_count
+                  FROM discharge_record d
+                  JOIN patient_encounter e ON e.id=d.encounter_id
+             LEFT JOIN sys_department dpt ON dpt.id=e.department_id
+                 WHERE (e.admitted_at IS NULL OR e.admitted_at<=:cutoff)
+                   AND (d.actual_discharge_at IS NULL OR d.actual_discharge_at>:cutoff)
+                 GROUP BY COALESCE(dpt.department_name, '未分配')
+                 ORDER BY COUNT(*) DESC, COALESCE(dpt.department_name, '未分配')
+                """).param("cutoff", cutoff).query((row, index) -> new DepartmentPatientCount(row.getString("department_name"), row.getLong("patient_count"))).list();
+        String content = presidentOperationReport(day, counts);
+        jdbc.sql("""
+                INSERT INTO push_task(business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,content,status,scheduled_at)
+                SELECT 'DISCHARGE','PRESIDENT_OPERATION_REPORT',:day,u.wecom_user_id,u.display_name,:content,'PENDING',CURRENT_TIMESTAMP
+                  FROM sys_user u
+                  JOIN sys_user_role ur ON ur.user_id=u.id
+                  JOIN sys_role r ON r.id=ur.role_id
+                 WHERE u.enabled=true AND r.enabled=true AND r.role_code='PRESIDENT'
+                   AND BTRIM(COALESCE(u.wecom_user_id,''))<>''
+                ON CONFLICT DO NOTHING
+                """).param("day", day).param("content", content).update();
+    }
+
+    static String presidentOperationReport(LocalDate day, List<DepartmentPatientCount> counts) {
+        long total = counts.stream().mapToLong(DepartmentPatientCount::patientCount).sum();
+        String departments = counts.isEmpty() ? "暂无在院患者" : counts.stream()
+                .map(item -> item.departmentName() + "：" + item.patientCount() + "人")
+                .collect(java.util.stream.Collectors.joining("\\n"));
+        return "截止到" + day.format(DateTimeFormatter.ofPattern("MMdd")) + "上午8点，在院患者一共" + total + "人，其中：\\n"
+                + departments + "\\n详情请登录康复医院运营管理系统查看：http://172.16.196.112";
+    }
+
+    record DepartmentPatientCount(String departmentName, long patientCount) {}
     private void createConsultation(String type, LocalDate day) {
         String table = "NUTRITION".equals(type) ? "discharge_nutrition_consultation" : "discharge_home_rehab_consultation";
         String role = "NUTRITION".equals(type) ? "NUTRITION" : "HOME_REHAB";
