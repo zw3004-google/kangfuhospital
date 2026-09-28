@@ -148,7 +148,7 @@ public class DischargeRepository {
                    AND (:departmentId=0 OR e.department_id=:departmentId)
                    AND (:dischargedFilter=2 OR (d.actual_discharge_at IS NOT NULL)=(:dischargedFilter=1))
                    AND (:category='' OR
-                        (:category='BOARD' AND d.planned_discharge_at IS NOT NULL) OR
+                        (:category='BOARD' AND d.planned_discharge_at IS NOT NULL AND COALESCE(d.is_turnover_patient,FALSE)=FALSE) OR
                         (:category='FOLLOW_UP' AND d.actual_discharge_at IS NOT NULL) OR
                         (:category='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation cn WHERE cn.encounter_id=e.id AND cn.deleted=false)) OR
                         (:category='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation ch WHERE ch.encounter_id=e.id AND ch.deleted=false)) OR
@@ -173,7 +173,7 @@ public class DischargeRepository {
                    AND (:departmentId=0 OR e.department_id=:departmentId)
                    AND (:dischargedFilter=2 OR (d.actual_discharge_at IS NOT NULL)=(:dischargedFilter=1))
                    AND (:category='' OR
-                        (:category='BOARD' AND d.planned_discharge_at IS NOT NULL) OR
+                        (:category='BOARD' AND d.planned_discharge_at IS NOT NULL AND COALESCE(d.is_turnover_patient,FALSE)=FALSE) OR
                         (:category='FOLLOW_UP' AND d.actual_discharge_at IS NOT NULL) OR
                         (:category='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation cn WHERE cn.encounter_id=e.id AND cn.deleted=false)) OR
                         (:category='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation ch WHERE ch.encounter_id=e.id AND ch.deleted=false)) OR

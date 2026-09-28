@@ -52,7 +52,7 @@ const page = ref(1)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
 const pageSize = ref(initialPageSize)
 const status = ref('')
-const dateRange = ref<[string, string] | []>([])
+const dateRange = ref<[string, string] | [] | null>([])
 const loading = ref(false)
 const retryingId = ref<number | null>(null)
 const batchRetrying = ref(false)
@@ -107,14 +107,15 @@ const normalizeRecord = (item: PushRecordResponse): PushRecord => ({
 const load = async () => {
   loading.value = true
   selectedRows.value = []
+  const selectedDateRange = dateRange.value ?? []
   try {
     const response = await http.get<ApiResponse<Page<PushRecordResponse>>>('/arrears/push-records', {
       params: {
         page: page.value,
         pageSize: pageSize.value,
         status: status.value || undefined,
-        startDate: dateRange.value[0] || undefined,
-        endDate: dateRange.value[1] || undefined,
+        startDate: selectedDateRange[0] || undefined,
+        endDate: selectedDateRange[1] || undefined,
         businessType: businessType.value,
       },
     })

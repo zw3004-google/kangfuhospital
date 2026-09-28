@@ -83,7 +83,7 @@ const detailLoading = ref(false)
 const departments = ref<Array<{ id: number; departmentName: string }>>([])
 const departmentId = ref<number>()
 const timeType = ref('')
-const dateRange = ref<string[]>([])
+const dateRange = ref<string[] | null>([])
 const keyword = ref('')
 const exporting = ref(false)
 const loadError = ref('')
@@ -111,14 +111,17 @@ const endExclusive = (date: string) => {
   value.setUTCDate(value.getUTCDate() + 1)
   return value.toISOString()
 }
-const detailParams = () => ({
-  category: activeCategory.value,
-  departmentId: departmentId.value,
-  timeType: timeType.value || undefined,
-  startAt: dateRange.value[0] ? `${dateRange.value[0]}T00:00:00+08:00` : undefined,
-  endAt: dateRange.value[1] ? endExclusive(dateRange.value[1]) : undefined,
-  keyword: keyword.value.trim() || undefined,
-})
+const detailParams = () => {
+  const selectedDateRange = dateRange.value ?? []
+  return {
+    category: activeCategory.value,
+    departmentId: departmentId.value,
+    timeType: timeType.value || undefined,
+    startAt: selectedDateRange[0] ? `${selectedDateRange[0]}T00:00:00+08:00` : undefined,
+    endAt: selectedDateRange[1] ? endExclusive(selectedDateRange[1]) : undefined,
+    keyword: keyword.value.trim() || undefined,
+  }
+}
 
 const renderChart = async () => {
   await nextTick()

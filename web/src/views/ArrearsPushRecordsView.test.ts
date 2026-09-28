@@ -200,6 +200,23 @@ describe('ArrearsPushRecordsView 阶段5', () => {
     wrapper.unmount()
   })
 
+  it('清空日期范围为 null 后仍可查询推送记录', async () => {
+    const wrapper = render()
+    await flushPromises()
+    const datePicker = wrapper.findComponent({ name: 'ElDatePicker' })
+    datePicker.vm.$emit('update:modelValue', ['2026-09-01', '2026-09-02'])
+    await nextTick()
+    datePicker.vm.$emit('update:modelValue', null)
+    await nextTick()
+    await wrapper.findAll('button').find(item => item.text() === '查询')!.trigger('click')
+    await flushPromises()
+
+    expect(mocks.get).toHaveBeenLastCalledWith('/arrears/push-records', {
+      params: expect.objectContaining({ startDate: undefined, endDate: undefined, businessType: 'ARREARS' }),
+    })
+    expect(mocks.error).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
   it('取消单条重发确认时不发送请求', async () => {
     mocks.confirm.mockRejectedValue('cancel')
     const wrapper = render()

@@ -227,6 +227,23 @@ describe('DischargeAnalysisView 阶段1', () => {
     expect(revokeUrl).toHaveBeenCalledWith('blob:test')
   }, 20000)
 
+  it('清空日期范围后仍可查询预出院看板', async () => {
+    getMock.mockImplementation((url: string) => Promise.resolve({ data: { data: url === '/discharge/analysis' ? metrics : url.endsWith('filter-options') ? [] : { items: [], total: 0 } } }))
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const datePicker = wrapper.findAllComponents({ name: 'ElDatePicker' })[1]
+    await datePicker.setValue(['2026-09-01', '2026-09-03'])
+    datePicker.vm.$emit('update:modelValue', null)
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '查询')!.trigger('click')
+    await flushPromises()
+
+    const recordCalls = getMock.mock.calls.filter(([url]) => url === '/discharge/records')
+    expect(recordCalls[recordCalls.length - 1][1]).toEqual({ params: expect.objectContaining({
+      category: 'BOARD', startAt: undefined, endAt: undefined, page: 1, pageSize: 50,
+    }) })
+    expect(messageErrorMock).not.toHaveBeenCalled()
+  })
   it('预览并生成正式提醒任务', async () => {
     getMock.mockImplementation((url: string) => {
       if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })

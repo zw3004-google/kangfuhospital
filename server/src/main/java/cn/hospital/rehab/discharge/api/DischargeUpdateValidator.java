@@ -10,13 +10,13 @@ final class DischargeUpdateValidator {
             throw new IllegalArgumentException("患者不能同时设为特殊患者和周转患者");
         if (Boolean.TRUE.equals(request.specialPatient()) && blank(request.specialReason()))
             throw new IllegalArgumentException("特殊患者必须填写特殊原因");
-        if (current.actualDischargeAt()!=null && request.plannedDischargeAt()!=null &&
+        if (!Boolean.TRUE.equals(request.specialPatient()) && !Boolean.TRUE.equals(request.turnoverPatient()) && current.actualDischargeAt()!=null && request.plannedDischargeAt()!=null &&
                 !sameTime(request.plannedDischargeAt(),current.plannedDischargeAt()))
             throw new IllegalArgumentException("患者出院后不可修改预计出院时间");
     }
 
     static void validateAfter(DischargeSummary updated) {
-        if (!updated.abnormalCodes().isEmpty() && blank(updated.abnormalReason()))
+        if (!Boolean.TRUE.equals(updated.specialPatient()) && !Boolean.TRUE.equals(updated.turnoverPatient()) && !updated.abnormalCodes().isEmpty() && blank(updated.abnormalReason()))
             throw new IllegalArgumentException("异常患者必须填写异常原因");
     }
 
