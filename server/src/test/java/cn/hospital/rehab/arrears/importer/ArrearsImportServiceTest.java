@@ -48,6 +48,22 @@ class ArrearsImportServiceTest {
     }
 
     @Test
+    void marksInpatientHisArrearsAsDischargedUnsettledWhenDischargedAtIsPresent() {
+        var row = row("IN001", "INPATIENT");
+        row.dischargedAt = "2026-09-28";
+
+        assertThat(ArrearsImportService.resolvedArrearsType(row, true))
+                .isEqualTo("DISCHARGED_UNSETTLED");
+    }
+
+    @Test
+    void keepsInpatientArrearsTypeWhenInpatientHisRowHasNoDischargedAt() {
+        var row = row("IN001", "INPATIENT");
+
+        assertThat(ArrearsImportService.resolvedArrearsType(row, true))
+                .isEqualTo("INPATIENT");
+    }
+    @Test
     void rejectsLegacyXlsFilesBeforeReadingWorkbook() {
         var service = new ArrearsImportService(mock(org.springframework.jdbc.core.simple.JdbcClient.class),
                 mock(FailedImportBatchRecorder.class));

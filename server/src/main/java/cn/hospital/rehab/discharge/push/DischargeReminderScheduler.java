@@ -64,9 +64,9 @@ public class DischargeReminderScheduler {
         long total = counts.stream().mapToLong(DepartmentPatientCount::patientCount).sum();
         String departments = counts.isEmpty() ? "暂无在院患者" : counts.stream()
                 .map(item -> item.departmentName() + "：" + item.patientCount() + "人")
-                .collect(java.util.stream.Collectors.joining("\\n"));
-        return "截止到" + day.format(DateTimeFormatter.ofPattern("MMdd")) + "上午8点，在院患者一共" + total + "人，其中：\\n"
-                + departments + "\\n详情请登录康复医院运营管理系统查看：http://172.16.196.112";
+                .collect(java.util.stream.Collectors.joining("\n"));
+        return "截止到" + day.format(DateTimeFormatter.ofPattern("MMdd")) + "上午8点，在院患者一共" + total + "人，其中：\n"
+                + departments;
     }
 
     record DepartmentPatientCount(String departmentName, long patientCount) {}

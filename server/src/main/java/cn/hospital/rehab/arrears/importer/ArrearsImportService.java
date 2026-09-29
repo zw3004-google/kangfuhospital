@@ -140,6 +140,7 @@ public class ArrearsImportService {
 
     private void upsertArrears(ArrearsImportRow row, long encounterId, long batchId, boolean directInterfaceAmount) {
         boolean excelDischargedArrears = !directInterfaceAmount && isDischargedArrears(row);
+        String arrearsType = resolvedArrearsType(row, directInterfaceAmount);
         boolean useSourceAmounts = directInterfaceAmount || excelDischargedArrears;
         CoefficientVersion version = useSourceAmounts ? null : jdbc.sql("SELECT c.id,c.coefficient FROM sys_fee_coefficient c JOIN sys_fee_type t ON t.id=c.fee_type_id WHERE BTRIM(t.fee_name)=:fee AND c.enabled=true")
                 .param("fee", row.feeType.trim()).query((r,n) -> new CoefficientVersion(r.getLong("id"), r.getBigDecimal("coefficient"))).optional()
@@ -155,13 +156,16 @@ public class ArrearsImportService {
                 INSERT INTO arrears_record(encounter_id,import_batch_id,arrears_type,total_cost,prepaid_amount,medical_insurance_paid,personal_account_paid,original_required_deposit,coefficient_version_id,coefficient_snapshot,final_required_deposit,deposit_difference,in_arrears,arrears_amount)
                 VALUES (:encounter,:batch,:type,:total,:prepaid,COALESCE(:insurance,0),COALESCE(:personal,0),:original,:versionId,:coefficient,:finalDeposit,:difference,:inArrears,:arrears)
                 ON CONFLICT (encounter_id) DO UPDATE SET import_batch_id=EXCLUDED.import_batch_id,arrears_type=COALESCE(EXCLUDED.arrears_type,arrears_record.arrears_type),total_cost=COALESCE(EXCLUDED.total_cost,arrears_record.total_cost),prepaid_amount=EXCLUDED.prepaid_amount,medical_insurance_paid=CASE WHEN :insuranceProvided THEN EXCLUDED.medical_insurance_paid ELSE arrears_record.medical_insurance_paid END,personal_account_paid=CASE WHEN :personalProvided THEN EXCLUDED.personal_account_paid ELSE arrears_record.personal_account_paid END,original_required_deposit=EXCLUDED.original_required_deposit,coefficient_version_id=EXCLUDED.coefficient_version_id,coefficient_snapshot=EXCLUDED.coefficient_snapshot,final_required_deposit=EXCLUDED.final_required_deposit,deposit_difference=EXCLUDED.deposit_difference,in_arrears=EXCLUDED.in_arrears,arrears_amount=EXCLUDED.arrears_amount,source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
-                """).param("encounter", encounterId).param("batch", batchId).param("type", row.arrearsType)
+                """).param("encounter", encounterId).param("batch", batchId).param("type", arrearsType)
                 .param("total", nullableDecimal(row.totalCost)).param("prepaid", prepaid).param("insurance", nullableDecimal(row.medicalInsurancePaid))
                 .param("personal", nullableDecimal(row.personalAccountPaid)).param("insuranceProvided", !blank(row.medicalInsurancePaid))
                 .param("personalProvided", !blank(row.personalAccountPaid)).param("original", original).param("versionId", version == null ? null : version.id()).param("coefficient", coefficient)
                 .param("finalDeposit", finalDeposit).param("difference", difference).param("inArrears", arrears.signum() != 0).param("arrears", arrears).update();
     }
 
+    static String resolvedArrearsType(ArrearsImportRow row, boolean directInterfaceAmount) {
+        return directInterfaceAmount && !blank(row.dischargedAt) ? "DISCHARGED_UNSETTLED" : row.arrearsType;
+    }
     private DoctorMatch matchDoctor(String employeeNo) {
         if (blank(employeeNo)) return new DoctorMatch(null, "NOT_FOUND");
         List<Long> ids = jdbc.sql("SELECT id FROM sys_user WHERE employee_no=:employeeNo AND enabled=true").param("employeeNo", normalizedEmployeeNo(employeeNo)).query(Long.class).list();

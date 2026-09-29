@@ -10,34 +10,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ArrearsNoticeServiceTest {
     @Test
-    void composesStructuredPreviewAndWecomTextFromTheSameData() {
-        var departments = List.of(
-                new ArrearsNoticeService.DepartmentArrears("神经康复一科", amount("180000"), amount("100000"), amount("30000"), amount("50000")),
-                new ArrearsNoticeService.DepartmentArrears("重症康复科", amount("20000"), amount("20000"), BigDecimal.ZERO, BigDecimal.ZERO));
+    void composesOnlyRecipientScopedTotalWithoutHospitalRanking() {
+        var recipientDepartments = List.of(
+                department("神经康复一科", "180000", 12),
+                department("神经康复二科", "20000", 3));
 
-        var preview = ArrearsNoticeService.compose("ARR-20260901080000",
-                OffsetDateTime.parse("2026-09-01T08:00:00+08:00"), "全院", departments);
+        var preview = ArrearsNoticeService.compose(null,
+                OffsetDateTime.parse("2026-09-01T08:00:00+08:00"), "神经康复一科、神经康复二科科室负责的患者",
+                recipientDepartments);
 
-        assertThat(preview.batchNo()).isEqualTo("ARR-20260901080000");
         assertThat(preview.totalAmount()).isEqualByComparingTo("200000");
-        assertThat(preview.departments()).containsExactlyElementsOf(departments);
-        assertThat(preview.systemLink()).isEqualTo("http://172.16.196.112");
+        assertThat(preview.departments()).containsExactlyElementsOf(recipientDepartments);
         assertThat(preview.content()).contains(
-                "截至 2026-09-01 08:00，全院患者欠费合计 20.00万 元",
-                "1. 神经康复一科：18.00万 元（在院 10.00万 + 出院已结算 3.00万 + 出院未结算 5.00万）",
-                "2. 重症康复科：2.00万 元（在院 2.00万 + 出院已结算 0.00万 + 出院未结算 0.00万）",
-                preview.systemLink());
+                "截止到2026年09月01日 08:00，神经康复一科、神经康复二科科室负责的患者总计欠费20.00万元。",
+                "详情请点击康复医院运营管理系统查看（院内内网访问）：",
+                "http://172.16.196.112")
+                .doesNotContain("全院科室欠费排名", "神经康复二科：2.00万元，3人");
     }
 
     @Test
-    void composesAnEmptyButReadablePreviewWhenTheBatchHasNoArrears() {
-        var preview = ArrearsNoticeService.compose("ARR-EMPTY",
-                OffsetDateTime.parse("2026-09-01T08:00:00+08:00"), "本科室", List.of());
+    void composesDoctorTitleAsDoctorThenName() {
+        var preview = ArrearsNoticeService.compose(null,
+                OffsetDateTime.parse("2026-09-01T08:00:00+08:00"), "神经康复一科内，主管医生张医生负责的患者",
+                List.of(department("神经康复一科", "36800", 2)));
 
-        assertThat(preview.totalAmount()).isZero();
-        assertThat(preview.departments()).isEmpty();
-        assertThat(preview.content()).contains("本科室患者欠费合计 0.00万 元");
+        assertThat(preview.content()).contains("神经康复一科内，主管医生张医生负责的患者总计欠费3.68万元。");
     }
-
-    private static BigDecimal amount(String value) { return new BigDecimal(value); }
+    private static ArrearsNoticeService.DepartmentArrears department(String name, String amount, long people) {
+        return new ArrearsNoticeService.DepartmentArrears(name, new BigDecimal(amount), people,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+    }
 }
