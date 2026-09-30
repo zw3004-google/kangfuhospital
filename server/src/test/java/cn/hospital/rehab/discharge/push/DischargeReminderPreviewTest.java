@@ -14,7 +14,7 @@ class DischargeReminderPreviewTest {
                 new DischargeReminderScheduler.DepartmentPatientCount("骨与关节病运动康复病房", 26),
                 new DischargeReminderScheduler.DepartmentPatientCount("神经重症康复病房", 33)));
 
-        assertThat(report).startsWith("截止到0928上午8点，在院患者一共59人，其中：")
+        assertThat(report).startsWith("截止到2026年9月28日上午08:00，在院患者一共59人，其中：")
                 .contains("骨与关节病运动康复病房：26人\n神经重症康复病房：33人")
                 .doesNotContain("\\n", "详情请登录康复医院运营管理系统查看", "http://172.16.196.112");
     }

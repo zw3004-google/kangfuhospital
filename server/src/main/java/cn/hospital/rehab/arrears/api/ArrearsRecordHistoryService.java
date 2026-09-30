@@ -43,9 +43,10 @@ public class ArrearsRecordHistoryService {
             JsonNode oldValue = mapper.readTree(before);
             JsonNode newValue = mapper.readTree(after);
             List<String> changes = new ArrayList<>();
+            addChange(changes, "欠费类型", oldValue, newValue, "arrearsType");
             addChange(changes, "情况说明", oldValue, newValue, "arrearsReason");
             addChange(changes, "追缴进度", oldValue, newValue, "recoveryProgress");
-            addChange(changes, "缴费状态", oldValue, newValue, "paymentStatus");
+
             return changes.isEmpty() ? List.of("更新欠费记录") : changes;
         } catch (Exception ignored) {
             return List.of("更新欠费记录");
@@ -63,6 +64,6 @@ public class ArrearsRecordHistoryService {
     }
 
     private static String display(String value) {
-        if (value.isBlank()) return "（空）"; return switch (value) { case "NOT_STARTED" -> "未催缴"; case "NEGOTIATING" -> "协商中"; case "REFUSED" -> "拒绝缴费"; case "LEGAL_ACTION" -> "移交法务发起诉讼"; case "PAID" -> "已缴费"; case "UNPAID" -> "未缴费"; default -> value; };
+        if (value.isBlank()) return "（空）"; return switch (value) { case "INPATIENT" -> "在院患者"; case "DISCHARGED_UNSETTLED" -> "出院未结算"; case "DISCHARGED_SETTLED" -> "出院已结算"; case "NOT_STARTED" -> "未催缴"; case "NEGOTIATING" -> "协商中"; case "REFUSED" -> "拒绝缴费"; case "LEGAL_ACTION" -> "移交法务发起诉讼"; case "PAID" -> "已缴费"; case "UNPAID" -> "未缴费"; default -> value; };
     }
 }

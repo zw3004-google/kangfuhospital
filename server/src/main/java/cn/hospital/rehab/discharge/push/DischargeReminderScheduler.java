@@ -65,7 +65,7 @@ public class DischargeReminderScheduler {
         String departments = counts.isEmpty() ? "暂无在院患者" : counts.stream()
                 .map(item -> item.departmentName() + "：" + item.patientCount() + "人")
                 .collect(java.util.stream.Collectors.joining("\n"));
-        return "截止到" + day.format(DateTimeFormatter.ofPattern("MMdd")) + "上午8点，在院患者一共" + total + "人，其中：\n"
+        return "截止到" + day.format(DateTimeFormatter.ofPattern("yyyy年M月d日")) + "上午08:00，在院患者一共" + total + "人，其中：\n"
                 + departments;
     }
 

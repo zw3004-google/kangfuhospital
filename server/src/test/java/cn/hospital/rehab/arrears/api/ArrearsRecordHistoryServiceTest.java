@@ -23,4 +23,12 @@ class ArrearsRecordHistoryServiceTest {
     void fallsBackForMalformedSnapshots() {
         assertThat(service.describe("not-json", null)).isEqualTo("更新欠费记录");
     }
+
+    @Test
+    void hidesPaymentStatusChangesFromOperationHistory() {
+        String before = "{\"recoveryProgress\":\"PAID\",\"paymentStatus\":\"UNPAID\"}";
+        String after = "{\"recoveryProgress\":\"PAID\",\"paymentStatus\":\"PAID\"}";
+
+        assertThat(service.describe(before, after)).isEqualTo("更新欠费记录");
+    }
 }

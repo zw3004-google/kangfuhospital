@@ -48,12 +48,12 @@ class ArrearsImportServiceTest {
     }
 
     @Test
-    void marksInpatientHisArrearsAsDischargedUnsettledWhenDischargedAtIsPresent() {
+    void keepsInpatientHisArrearsTypeWhenDischargedAtIsPresent() {
         var row = row("IN001", "INPATIENT");
         row.dischargedAt = "2026-09-28";
 
         assertThat(ArrearsImportService.resolvedArrearsType(row, true))
-                .isEqualTo("DISCHARGED_UNSETTLED");
+                .isEqualTo("INPATIENT");
     }
 
     @Test
@@ -66,7 +66,7 @@ class ArrearsImportServiceTest {
     @Test
     void rejectsLegacyXlsFilesBeforeReadingWorkbook() {
         var service = new ArrearsImportService(mock(org.springframework.jdbc.core.simple.JdbcClient.class),
-                mock(FailedImportBatchRecorder.class));
+                mock(FailedImportBatchRecorder.class), mock(cn.hospital.rehab.common.audit.AuditLogService.class));
         var file = new MockMultipartFile("file", "arrears.xls", "application/vnd.ms-excel", new byte[]{1});
 
         assertThatThrownBy(() -> service.importFile(file))

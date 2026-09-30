@@ -18,6 +18,6 @@ public class ArrearsImportController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FINANCE','OPERATIONS')")
     @PostMapping(consumes = "multipart/form-data")
     ApiResponse<ArrearsImportResult> importFile(Authentication auth,HttpServletRequest http,@RequestPart("file") MultipartFile file) {
-        var result=service.importFile(file);audit.record(auth,"IMPORTING","IMPORT_BATCH",result.batchNo(),"IMPORT_ARREARS",null,result,http.getRemoteAddr());return ApiResponse.ok(result);
+        var result=service.importFile(file,auth,http.getRemoteAddr());audit.record(auth,"IMPORTING","IMPORT_BATCH",result.batchNo(),"IMPORT_ARREARS",null,result,http.getRemoteAddr());return ApiResponse.ok(result);
     }
 }

@@ -21,6 +21,8 @@ import cn.hospital.rehab.common.importing.ImportError;
 import cn.hospital.rehab.common.importing.ExcelSheetRows;
 import cn.hospital.rehab.common.importing.ImportValidationException;
 import cn.hospital.rehab.common.importing.FailedImportBatchRecorder;
+import cn.hospital.rehab.common.audit.AuditLogService;
+import org.springframework.security.core.Authentication;
 
 @Service
 public class ArrearsImportService {
@@ -34,26 +36,33 @@ public class ArrearsImportService {
     };
     private final JdbcClient jdbc;
     private final FailedImportBatchRecorder failedBatches;
+    private final AuditLogService audit;
 
-    public ArrearsImportService(JdbcClient jdbc, FailedImportBatchRecorder failedBatches) { this.jdbc = jdbc; this.failedBatches = failedBatches; }
+    public ArrearsImportService(JdbcClient jdbc, FailedImportBatchRecorder failedBatches, AuditLogService audit) { this.jdbc = jdbc; this.failedBatches = failedBatches; this.audit = audit; }
 
     @Transactional
     public ArrearsImportResult importFile(MultipartFile file) {
+        return importFile(file, null, null);
+    }
+
+    @Transactional
+    public ArrearsImportResult importFile(MultipartFile file, Authentication operator, String clientIp) {
         validateFile(file);
         List<ArrearsImportRow> rows = readRows(file);
         if (rows.size() > 1000) throw new IllegalArgumentException("单次导入最多1000条数据");
         if (rows.isEmpty()) throw new IllegalArgumentException("导入文件没有数据行");
-        try { validateRows(rows, false); }
+        try { validateRows(rows, false, true); }
         catch (ImportValidationException exception) {
             String failedBatchNo = failedBatches.record("ARREARS", file.getOriginalFilename(), rows.size(), exception.getErrors());
             throw new ImportValidationException(failedBatchNo, exception.getErrors());
         }
         jdbc.sql("SELECT pg_advisory_xact_lock(hashtext('IMPORT_ARREARS'))").query((rs, rowNum) -> true).single();
+        Long operatorId = operator == null ? null : jdbc.sql("SELECT id FROM sys_user WHERE login_name=:loginName").param("loginName", operator.getName()).query(Long.class).optional().orElse(null);
         String batchNo = "ARR-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-" + UUID.randomUUID().toString().substring(0, 6);
         long batchId = jdbc.sql("""
-                INSERT INTO import_batch(batch_no,business_type,source_type,original_filename,status,total_count)
-                VALUES (:batchNo,'ARREARS','EXCEL',:filename,'PROCESSING',:total) RETURNING id
-                """).param("batchNo", batchNo).param("filename", file.getOriginalFilename()).param("total", rows.size())
+                INSERT INTO import_batch(batch_no,business_type,source_type,original_filename,status,total_count,started_by)
+                VALUES (:batchNo,'ARREARS','EXCEL',:filename,'PROCESSING',:total,:startedBy) RETURNING id
+                """).param("batchNo", batchNo).param("filename", file.getOriginalFilename()).param("total", rows.size()).param("startedBy", operatorId)
                 .query(Long.class).single();
         int matched = 0, unmatched = 0, ambiguous = 0, added = 0, overwritten = 0;
         for (ArrearsImportRow row : rows) {
@@ -61,7 +70,11 @@ public class ArrearsImportService {
             if (doctor.matched()) matched++; else if (doctor.ambiguous()) ambiguous++; else unmatched++;
             boolean exists = encounterExists(row);
             long encounterId = upsertEncounter(row, doctor);
-            upsertArrears(row, encounterId, batchId, false);
+            ArrearsImportState before = arrearsImportState(encounterId);
+            upsertArrears(row, encounterId, batchId, false, true, operatorId);
+            ArrearsImportState after = arrearsImportState(encounterId);
+            if (operator != null && before != null && managementFieldsChanged(before, after))
+                audit.record(operator, "ARREARS", "ARREARS_RECORD", String.valueOf(after.id()), "IMPORT_ARREARS", before, after, clientIp);
             if (exists) overwritten++; else added++;
         }
         jdbc.sql("""
@@ -80,7 +93,7 @@ public class ArrearsImportService {
                                               String triggerType, Long startedBy) {
         if (rows.isEmpty()) throw new IllegalArgumentException("HIS接口未返回数据");
         boolean directInterfaceAmount = INPATIENT_ARREARS_TRANSACTION.equals(transactionCode);
-        try { validateRows(rows, directInterfaceAmount); }
+        try { validateRows(rows, directInterfaceAmount, false); }
         catch (ImportValidationException exception) {
             String failedBatchNo = failedBatches.recordApi("ARREARS", transactionCode, triggerType, startedBy,
                     rows.size(), exception.getErrors());
@@ -100,7 +113,7 @@ public class ArrearsImportService {
             if (doctor.matched()) matched++; else if (doctor.ambiguous()) ambiguous++; else unmatched++;
             boolean exists = encounterExists(row);
             long encounterId = upsertEncounter(row, doctor);
-            upsertArrears(row, encounterId, batchId, directInterfaceAmount);
+            upsertArrears(row, encounterId, batchId, directInterfaceAmount, false, null);
             if (exists) overwritten++; else added++;
         }
         jdbc.sql("""
@@ -138,7 +151,7 @@ public class ArrearsImportService {
                 .param("admitted", parseDate(row.admittedAt)).param("discharged", parseDate(row.dischargedAt)).query(Long.class).single();
     }
 
-    private void upsertArrears(ArrearsImportRow row, long encounterId, long batchId, boolean directInterfaceAmount) {
+    private void upsertArrears(ArrearsImportRow row, long encounterId, long batchId, boolean directInterfaceAmount, boolean overwriteManagementFields, Long operatorId) {
         boolean excelDischargedArrears = !directInterfaceAmount && isDischargedArrears(row);
         String arrearsType = resolvedArrearsType(row, directInterfaceAmount);
         boolean useSourceAmounts = directInterfaceAmount || excelDischargedArrears;
@@ -150,22 +163,39 @@ public class ArrearsImportService {
         BigDecimal finalDeposit = excelDischargedArrears ? original : original.multiply(coefficient).setScale(2, RoundingMode.HALF_UP);
         BigDecimal difference = prepaid.subtract(finalDeposit).setScale(2, RoundingMode.HALF_UP);
         BigDecimal arrears = directInterfaceAmount ? decimal(row.interfaceArrearsAmount).setScale(2, RoundingMode.HALF_UP)
-                : excelDischargedArrears ? decimal(row.arrearsAmount).setScale(2, RoundingMode.HALF_UP)
+                : excelDischargedArrears ? decimal(row.arrearsAmount).abs().setScale(2, RoundingMode.HALF_UP)
                 : difference.signum() < 0 ? difference.abs() : BigDecimal.ZERO;
+        boolean overwriteRecoveryProgress = overwriteManagementFields && !blank(row.recoveryProgress);
+        String recoveryProgress = overwriteRecoveryProgress ? row.recoveryProgress : "NOT_STARTED";
+        String paymentStatus = "PAID".equals(recoveryProgress) ? "PAID" : "UNPAID";
+        String previousRecoveryProgress = "PAID".equals(recoveryProgress) ? "NOT_STARTED" : recoveryProgress;
         jdbc.sql("""
-                INSERT INTO arrears_record(encounter_id,import_batch_id,arrears_type,total_cost,prepaid_amount,medical_insurance_paid,personal_account_paid,original_required_deposit,coefficient_version_id,coefficient_snapshot,final_required_deposit,deposit_difference,in_arrears,arrears_amount)
-                VALUES (:encounter,:batch,:type,:total,:prepaid,COALESCE(:insurance,0),COALESCE(:personal,0),:original,:versionId,:coefficient,:finalDeposit,:difference,:inArrears,:arrears)
-                ON CONFLICT (encounter_id) DO UPDATE SET import_batch_id=EXCLUDED.import_batch_id,arrears_type=COALESCE(EXCLUDED.arrears_type,arrears_record.arrears_type),total_cost=COALESCE(EXCLUDED.total_cost,arrears_record.total_cost),prepaid_amount=EXCLUDED.prepaid_amount,medical_insurance_paid=CASE WHEN :insuranceProvided THEN EXCLUDED.medical_insurance_paid ELSE arrears_record.medical_insurance_paid END,personal_account_paid=CASE WHEN :personalProvided THEN EXCLUDED.personal_account_paid ELSE arrears_record.personal_account_paid END,original_required_deposit=EXCLUDED.original_required_deposit,coefficient_version_id=EXCLUDED.coefficient_version_id,coefficient_snapshot=EXCLUDED.coefficient_snapshot,final_required_deposit=EXCLUDED.final_required_deposit,deposit_difference=EXCLUDED.deposit_difference,in_arrears=EXCLUDED.in_arrears,arrears_amount=EXCLUDED.arrears_amount,source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                INSERT INTO arrears_record(encounter_id,import_batch_id,arrears_type,total_cost,prepaid_amount,medical_insurance_paid,personal_account_paid,original_required_deposit,coefficient_version_id,coefficient_snapshot,final_required_deposit,deposit_difference,in_arrears,arrears_amount,payment_status,recovery_progress,previous_recovery_progress,last_operated_by)
+                VALUES (:encounter,:batch,:type,:total,:prepaid,COALESCE(:insurance,0),COALESCE(:personal,0),:original,:versionId,:coefficient,:finalDeposit,:difference,:inArrears,:arrears,:paymentStatus,:recoveryProgress,:previousRecoveryProgress,:operatorId)
+                ON CONFLICT (encounter_id) DO UPDATE SET import_batch_id=EXCLUDED.import_batch_id,arrears_type=CASE WHEN :overwriteManagementFields THEN EXCLUDED.arrears_type ELSE arrears_record.arrears_type END,total_cost=COALESCE(EXCLUDED.total_cost,arrears_record.total_cost),prepaid_amount=EXCLUDED.prepaid_amount,medical_insurance_paid=CASE WHEN :insuranceProvided THEN EXCLUDED.medical_insurance_paid ELSE arrears_record.medical_insurance_paid END,personal_account_paid=CASE WHEN :personalProvided THEN EXCLUDED.personal_account_paid ELSE arrears_record.personal_account_paid END,original_required_deposit=EXCLUDED.original_required_deposit,coefficient_version_id=EXCLUDED.coefficient_version_id,coefficient_snapshot=EXCLUDED.coefficient_snapshot,final_required_deposit=EXCLUDED.final_required_deposit,deposit_difference=EXCLUDED.deposit_difference,in_arrears=EXCLUDED.in_arrears,arrears_amount=EXCLUDED.arrears_amount,payment_status=CASE WHEN :overwriteRecoveryProgress THEN EXCLUDED.payment_status ELSE arrears_record.payment_status END,recovery_progress=CASE WHEN :overwriteRecoveryProgress THEN EXCLUDED.recovery_progress ELSE arrears_record.recovery_progress END,previous_recovery_progress=CASE WHEN :overwriteRecoveryProgress AND EXCLUDED.recovery_progress='PAID' THEN CASE WHEN arrears_record.recovery_progress='PAID' THEN arrears_record.previous_recovery_progress ELSE arrears_record.recovery_progress END WHEN :overwriteRecoveryProgress THEN EXCLUDED.previous_recovery_progress ELSE arrears_record.previous_recovery_progress END,last_operated_by=CASE WHEN :overwriteManagementFields THEN :operatorId ELSE arrears_record.last_operated_by END,source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
                 """).param("encounter", encounterId).param("batch", batchId).param("type", arrearsType)
                 .param("total", nullableDecimal(row.totalCost)).param("prepaid", prepaid).param("insurance", nullableDecimal(row.medicalInsurancePaid))
                 .param("personal", nullableDecimal(row.personalAccountPaid)).param("insuranceProvided", !blank(row.medicalInsurancePaid))
                 .param("personalProvided", !blank(row.personalAccountPaid)).param("original", original).param("versionId", version == null ? null : version.id()).param("coefficient", coefficient)
-                .param("finalDeposit", finalDeposit).param("difference", difference).param("inArrears", arrears.signum() != 0).param("arrears", arrears).update();
+                .param("finalDeposit", finalDeposit).param("difference", difference).param("inArrears", arrears.signum() != 0).param("arrears", arrears)
+                .param("paymentStatus", paymentStatus).param("recoveryProgress", recoveryProgress).param("previousRecoveryProgress", previousRecoveryProgress)
+                .param("overwriteManagementFields", overwriteManagementFields).param("overwriteRecoveryProgress", overwriteRecoveryProgress).param("operatorId", operatorId).update();
     }
 
     static String resolvedArrearsType(ArrearsImportRow row, boolean directInterfaceAmount) {
-        return directInterfaceAmount && !blank(row.dischargedAt) ? "DISCHARGED_UNSETTLED" : row.arrearsType;
+        return row.arrearsType;
     }
+    private ArrearsImportState arrearsImportState(long encounterId) {
+        return jdbc.sql("SELECT id,arrears_type,recovery_progress,payment_status FROM arrears_record WHERE encounter_id=:encounterId")
+                .param("encounterId", encounterId).query((row, index) -> new ArrearsImportState(row.getLong("id"), row.getString("arrears_type"), row.getString("recovery_progress"), row.getString("payment_status"))).optional().orElse(null);
+    }
+    private static boolean managementFieldsChanged(ArrearsImportState before, ArrearsImportState after) {
+        return !java.util.Objects.equals(before.arrearsType(), after.arrearsType())
+                || !java.util.Objects.equals(before.recoveryProgress(), after.recoveryProgress())
+                || !java.util.Objects.equals(before.paymentStatus(), after.paymentStatus());
+    }
+    private record ArrearsImportState(long id, String arrearsType, String recoveryProgress, String paymentStatus) {}
+
     private DoctorMatch matchDoctor(String employeeNo) {
         if (blank(employeeNo)) return new DoctorMatch(null, "NOT_FOUND");
         List<Long> ids = jdbc.sql("SELECT id FROM sys_user WHERE employee_no=:employeeNo AND enabled=true").param("employeeNo", normalizedEmployeeNo(employeeNo)).query(Long.class).list();
@@ -197,9 +227,10 @@ public class ArrearsImportService {
             result.personalAccountPaid = ExcelSheetRows.value(row, "个人账户支付（元）", "个人账户支付(元)");
             result.originalRequiredDeposit = ExcelSheetRows.value(row, "原始应交押金（元）", "应交押金（元）", "应交押金(元)");
             result.arrearsAmount = ExcelSheetRows.value(row, "\u6b20\u8d39\u91d1\u989d", "\u6b20\u8d39\u91d1\u989d\uff08\u5143\uff09", "\u6b20\u8d39\u91d1\u989d(\u5143)");
+            result.recoveryProgress = ExcelSheetRows.value(row, "追缴进度");
             return result;
         }).toList();
-    }    private void validateRows(List<ArrearsImportRow> rows, boolean directInterfaceAmount) {
+    }    private void validateRows(List<ArrearsImportRow> rows, boolean directInterfaceAmount, boolean excelImport) {
         List<ImportError> errors = new ArrayList<>();
         Set<String> keys = new HashSet<>();
         for (int index = 0; index < rows.size(); index++) {
@@ -212,6 +243,19 @@ public class ArrearsImportService {
             if (directInterfaceAmount) required(errors, excelRow, row, "欠费金额（元）", row.interfaceArrearsAmount);
             else {
                 required(errors, excelRow, row, "费别", row.feeType);
+                if (excelImport) {
+                    if (blank(row.arrearsType)) required(errors, excelRow, row, "欠费类型", row.arrearsType);
+                    else {
+                        String type = normalizeArrearsType(row.arrearsType);
+                        if (type == null) error(errors, excelRow, row, "欠费类型", row.arrearsType, "INVALID_VALUE", "欠费类型必须为在院患者、出院未结算或出院已结算");
+                        else row.arrearsType = type;
+                    }
+                    if (!blank(row.recoveryProgress)) {
+                        String progress = normalizeRecoveryProgress(row.recoveryProgress);
+                        if (progress == null) error(errors, excelRow, row, "追缴进度", row.recoveryProgress, "INVALID_VALUE", "追缴进度不正确");
+                        else row.recoveryProgress = progress;
+                    }
+                }
                 required(errors, excelRow, row, "预交金（元）", row.prepaidAmount);
                 required(errors, excelRow, row, "原始应交押金（元）", row.originalRequiredDeposit);
                 if (isDischargedArrears(row)) required(errors, excelRow, row, "\u6b20\u8d39\u91d1\u989d", row.arrearsAmount);
@@ -240,6 +284,26 @@ public class ArrearsImportService {
     private static void validateDate(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value){if(blank(value))return;try{parseDate(value);}catch(IllegalArgumentException e){error(errors,n,r,field,value,"INVALID_FORMAT",e.getMessage());}}
     private static void error(List<ImportError> errors,int n,ArrearsImportRow r,String field,String value,String code,String message){errors.add(new ImportError(n,r.inpatientNo,r.admissionTimes,r.patientName,field,value,code,message));}
     private static boolean blank(String value) { return value == null || value.isBlank(); }
+    private static String normalizeArrearsType(String value) {
+        if (blank(value)) return null;
+        return switch (value.trim().toUpperCase()) {
+            case "INPATIENT", "在院患者" -> "INPATIENT";
+            case "DISCHARGED_UNSETTLED", "出院未结算" -> "DISCHARGED_UNSETTLED";
+            case "DISCHARGED_SETTLED", "出院已结算" -> "DISCHARGED_SETTLED";
+            default -> null;
+        };
+    }
+    private static String normalizeRecoveryProgress(String value) {
+        if (blank(value)) return null;
+        return switch (value.trim().toUpperCase()) {
+            case "NOT_STARTED", "未催缴", "未开始" -> "NOT_STARTED";
+            case "NEGOTIATING", "协商中", "跟进中" -> "NEGOTIATING";
+            case "REFUSED", "拒绝缴费" -> "REFUSED";
+            case "LEGAL_ACTION", "移交法务", "移交法务发起诉讼" -> "LEGAL_ACTION";
+            case "PAID", "已缴费" -> "PAID";
+            default -> null;
+        };
+    }
     private static boolean isDischargedArrears(ArrearsImportRow row) {
         return !blank(row.dischargedAt) || "DISCHARGED_UNSETTLED".equals(row.arrearsType)
                 || "DISCHARGED_SETTLED".equals(row.arrearsType) || "\u51fa\u9662\u672a\u7ed3\u7b97".equals(row.arrearsType)

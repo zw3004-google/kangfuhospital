@@ -197,7 +197,7 @@ class ApplicationPostgresIntegrationTest {
         row.dischargedAt = "2026-09-15";
         row.prepaidAmount = "100";
         row.originalRequiredDeposit = "200";
-        row.arrearsAmount = "345.67";
+        row.arrearsAmount = "-345.67";
 
         var result = arrearsImportService.importFile(workbook("discharged-arrears-source.xlsx", ArrearsImportRow.class, List.of(row)));
 
@@ -703,20 +703,53 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     @Transactional
-    void arrearsRepeatedImportPreservesManualFieldsAndReportsOverwrite() {
+    void arrearsRepeatedImportOverwritesExcelManagementFieldsAndReportsOverwrite() {
         ensureFeeCoefficient("PHASE3", "PHASE3", "1.5");
         ArrearsImportRow row = arrearsRow("PHASE3-ARR");
         var first = arrearsImportService.importFile(workbook("arrears-first.xlsx", ArrearsImportRow.class, List.of(row)));
         assertThat(first.added()).isEqualTo(1);
         jdbc.sql("UPDATE arrears_record SET payment_status='PAID',arrears_reason='人工原因',recovery_progress='PAID',previous_recovery_progress='NEGOTIATING' WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='PHASE3-ARR' AND admission_times=1)").update();
-        row.patientName = "阶段三患者更新"; row.totalCost = null;
+        row.patientName = "阶段三患者更新"; row.totalCost = null; row.arrearsType = "DISCHARGED_UNSETTLED"; row.arrearsAmount = "77"; row.recoveryProgress = "NEGOTIATING";
         var second = arrearsImportService.importFile(workbook("arrears-second.xlsx", ArrearsImportRow.class, List.of(row)));
         assertThat(second.overwritten()).isEqualTo(1);
-        var preserved = jdbc.sql("SELECT payment_status||'|'||arrears_reason||'|'||recovery_progress FROM arrears_record WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='PHASE3-ARR' AND admission_times=1)").query(String.class).single();
-        assertThat(preserved).isEqualTo("PAID|人工原因|PAID");
+        var overwritten = jdbc.sql("SELECT payment_status||'|'||arrears_reason||'|'||recovery_progress||'|'||arrears_type FROM arrears_record WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='PHASE3-ARR' AND admission_times=1)").query(String.class).single();
+        assertThat(overwritten).isEqualTo("UNPAID|人工原因|NEGOTIATING|DISCHARGED_UNSETTLED");
         assertThat(jdbc.sql("SELECT COUNT(*) FROM import_batch WHERE business_type='ARREARS' AND status='SUCCESS' AND summary_status='READY' AND batch_no IN (:a,:b)").param("a",first.batchNo()).param("b",second.batchNo()).query(Long.class).single()).isEqualTo(2);
     }
 
+    @Test
+    @Transactional
+    void excelArrearsImportRecordsTheImportingUserInRecoveryProgressHistory() {
+        ensureFeeCoefficient("PHASE3", "PHASE3", "1.0");
+        ArrearsImportRow row = arrearsRow("EXCEL-AUDIT-001");
+        arrearsImportService.importFile(workbook("arrears-audit-first.xlsx", ArrearsImportRow.class, List.of(row)));
+        row.arrearsType = "出院未结算";
+        row.arrearsAmount = "88";
+        row.recoveryProgress = "已缴费";
+        var operator = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin", "unused");
+        arrearsImportService.importFile(workbook("arrears-audit-second.xlsx", ArrearsImportRow.class, List.of(row)), operator, "127.0.0.1");
+
+        long recordId = jdbc.sql("SELECT id FROM arrears_record WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='EXCEL-AUDIT-001' AND admission_times=1)").query(Long.class).single();
+        assertThat(jdbc.sql("SELECT payment_status||'|'||recovery_progress||'|'||arrears_type||'|'||COALESCE((SELECT login_name FROM sys_user WHERE id=last_operated_by),'') FROM arrears_record WHERE id=:id").param("id", recordId).query(String.class).single())
+                .isEqualTo("PAID|PAID|DISCHARGED_UNSETTLED|admin");
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM operation_audit_log WHERE business_type='ARREARS_RECORD' AND business_id=:id AND action_type='IMPORT_ARREARS' AND operator_name='admin'").param("id", String.valueOf(recordId)).query(Long.class).single())
+                .isEqualTo(1);
+    }
+    @Test
+    @Transactional
+    void excelArrearsImportKeepsRecoveryProgressWhenTheExcelCellIsBlank() {
+        ensureFeeCoefficient("PHASE3", "PHASE3", "1.0");
+        ArrearsImportRow row = arrearsRow("EXCEL-BLANK-PROGRESS-001");
+        arrearsImportService.importFile(workbook("arrears-blank-progress-first.xlsx", ArrearsImportRow.class, List.of(row)));
+        jdbc.sql("UPDATE arrears_record SET payment_status='PAID',recovery_progress='PAID',previous_recovery_progress='NEGOTIATING' WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='EXCEL-BLANK-PROGRESS-001' AND admission_times=1)").update();
+        row.arrearsType = "出院未结算";
+        row.arrearsAmount = "-66";
+        row.recoveryProgress = null;
+        arrearsImportService.importFile(workbook("arrears-blank-progress-second.xlsx", ArrearsImportRow.class, List.of(row)));
+
+        assertThat(jdbc.sql("SELECT payment_status||'|'||recovery_progress||'|'||arrears_type||'|'||arrears_amount FROM arrears_record WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='EXCEL-BLANK-PROGRESS-001' AND admission_times=1)").query(String.class).single())
+                .isEqualTo("PAID|PAID|DISCHARGED_UNSETTLED|66.00");
+    }
     @Test
     @Transactional
     void arrearsImportCovers999To1001BoundariesAndLargeQueries() throws Exception {
@@ -832,7 +865,7 @@ class ApplicationPostgresIntegrationTest {
 
     @Test
     @Transactional
-    void fiftyRepeatedImportsPreserveManualFieldsAndComplete() {
+    void fiftyRepeatedImportsOverwriteExcelManagementFieldsAndComplete() {
         ensureFeeCoefficient("PHASE6", "PHASE6", "1.0");
         ArrearsImportRow row = arrearsCapacityRow("S6-REPEAT-50");
         var file = workbook("arrears-repeat-50.xlsx", ArrearsImportRow.class, List.of(row));
@@ -847,7 +880,7 @@ class ApplicationPostgresIntegrationTest {
         long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
         assertThat(first.added()).isEqualTo(1);
         assertThat(jdbc.sql("SELECT payment_status||'|'||arrears_reason||'|'||recovery_progress FROM arrears_record WHERE encounter_id=(SELECT id FROM patient_encounter WHERE inpatient_no='S6-REPEAT-50' AND admission_times=1)").query(String.class).single())
-                .isEqualTo("PAID|容量测试人工原因|PAID");
+                .isEqualTo("UNPAID|容量测试人工原因|NOT_STARTED");
         assertThat(jdbc.sql("SELECT COUNT(*) FROM import_batch WHERE business_type='ARREARS' AND original_filename='arrears-repeat-50.xlsx' AND status='SUCCESS'").query(Long.class).single()).isEqualTo(50);
         System.out.printf("PHASE6_METRIC arrears_repeated_imports_49_ms=%d%n", elapsedMillis);
     }
@@ -889,7 +922,7 @@ class ApplicationPostgresIntegrationTest {
     }
 
     private static DischargeImportRow dischargeRow(String no) { DischargeImportRow r=new DischargeImportRow();r.inpatientNo=no;r.admissionTimes=1;r.patientName="阶段三患者";r.wardName="测试康复一科";r.feeType="TEST";return r; }
-    private static ArrearsImportRow arrearsRow(String no) { ArrearsImportRow r=new ArrearsImportRow();r.inpatientNo=no;r.admissionTimes=1;r.patientName="阶段三患者";r.wardName="测试康复一科";r.feeType="PHASE3";r.prepaidAmount="100";r.originalRequiredDeposit="200";r.totalCost="500";return r; }
+    private static ArrearsImportRow arrearsRow(String no) { ArrearsImportRow r=new ArrearsImportRow();r.inpatientNo=no;r.admissionTimes=1;r.patientName="阶段三患者";r.wardName="测试康复一科";r.feeType="PHASE3";r.arrearsType="INPATIENT";r.recoveryProgress="NOT_STARTED";r.prepaidAmount="100";r.originalRequiredDeposit="200";r.totalCost="500";return r; }
     private static ArrearsImportRow arrearsCapacityRow(String no) { ArrearsImportRow r=arrearsRow(no);r.patientName="阶段六容量患者";r.feeType="PHASE6";return r; }
     private static <T> MockMultipartFile workbook(String name,Class<T> type,List<T> rows){
         ByteArrayOutputStream out=new ByteArrayOutputStream();
@@ -898,8 +931,8 @@ class ApplicationPostgresIntegrationTest {
             List<List<Object>> data=rows.stream().map(value->{DischargeImportRow r=(DischargeImportRow)value;return List.<Object>of(r.inpatientNo,r.admissionTimes,r.patientName,r.wardName,r.feeType==null?"":r.feeType,r.doctorName==null?"":r.doctorName,r.doctorEmployeeNo==null?"":r.doctorEmployeeNo,r.admittedAt==null?"":r.admittedAt,r.plannedDischargeAt==null?"":r.plannedDischargeAt,r.actualDischargeAt==null?"":r.actualDischargeAt);}).toList();
             EasyExcel.write(out).head(head).sheet().doWrite(data);
         }else{
-            List<List<String>> head=List.of("住院号","住院次数","姓名","住院病区","费别","欠费类型","主管医生","主管医生工号","入区日期","出区日期","总费用","预交金（元）","医保支付（元）","个人账户支付（元）","原始应交押金（元）","\u6b20\u8d39\u91d1\u989d").stream().map(List::of).toList();
-            List<List<Object>> data=rows.stream().map(value->{ArrearsImportRow r=(ArrearsImportRow)value;return List.<Object>of(r.inpatientNo,r.admissionTimes,r.patientName,r.wardName,r.feeType,r.arrearsType==null?"":r.arrearsType,r.doctorName==null?"":r.doctorName,r.doctorEmployeeNo==null?"":r.doctorEmployeeNo,r.admittedAt==null?"":r.admittedAt,r.dischargedAt==null?"":r.dischargedAt,r.totalCost==null?"":r.totalCost,r.prepaidAmount,r.medicalInsurancePaid==null?"":r.medicalInsurancePaid,r.personalAccountPaid==null?"":r.personalAccountPaid,r.originalRequiredDeposit,r.arrearsAmount==null?"":r.arrearsAmount);}).toList();
+            List<List<String>> head=List.of("住院号","住院次数","姓名","住院病区","费别","欠费类型","主管医生","主管医生工号","入区日期","出区日期","总费用","预交金（元）","医保支付（元）","个人账户支付（元）","原始应交押金（元）","\u6b20\u8d39\u91d1\u989d","追缴进度").stream().map(List::of).toList();
+            List<List<Object>> data=rows.stream().map(value->{ArrearsImportRow r=(ArrearsImportRow)value;return List.<Object>of(r.inpatientNo,r.admissionTimes,r.patientName,r.wardName,r.feeType,r.arrearsType==null?"":r.arrearsType,r.doctorName==null?"":r.doctorName,r.doctorEmployeeNo==null?"":r.doctorEmployeeNo,r.admittedAt==null?"":r.admittedAt,r.dischargedAt==null?"":r.dischargedAt,r.totalCost==null?"":r.totalCost,r.prepaidAmount,r.medicalInsurancePaid==null?"":r.medicalInsurancePaid,r.personalAccountPaid==null?"":r.personalAccountPaid,r.originalRequiredDeposit,r.arrearsAmount==null?"":r.arrearsAmount,r.recoveryProgress==null?"":r.recoveryProgress);}).toList();
             EasyExcel.write(out).head(head).sheet().doWrite(data);
         }
         return new MockMultipartFile("file",name,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",out.toByteArray());

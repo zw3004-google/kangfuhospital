@@ -19,8 +19,8 @@ class ArrearsImportControllerTest {
         var file = new MockMultipartFile("file", "arrears.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1});
         var result = new ArrearsImportResult("ARR-001", 8, 8, 0, 3, 5, 0, 6, 1, 1);
-        when(service.importFile(file)).thenReturn(result);
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(service.importFile(file, auth, "127.0.0.1")).thenReturn(result);
         var controller = new ArrearsImportController(service, audit);
 
         var response = controller.importFile(auth, request, file);
