@@ -148,6 +148,23 @@ describe('DischargeAnalysisView 阶段1', () => {
     expect(wrapper.findComponent({ name: 'ElPagination' }).props('pageSizes')).toEqual([20, 50, 100, 200])
   })
 
+  it('复诊预约明细展示服务端返回的已设置预约复诊时间', async () => {
+    const item = { id: 4, patientName: '复诊患者', inpatientNo: 'ZY-OUTPATIENT-001', admissionTimes: 1, latestOutpatientAppointmentAt: '2026-09-08T10:30:00+08:00', abnormalCodes: [] }
+    getMock.mockImplementation((url: string, config?: { params?: { category?: string } }) => {
+      if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })
+      if (url.endsWith('filter-options')) return Promise.resolve({ data: { data: [] } })
+      const isOutpatient = config?.params?.category === 'OUTPATIENT'
+      return Promise.resolve({ data: { data: { items: isOutpatient ? [item] : [], total: isOutpatient ? 1 : 0 } } })
+    })
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    wrapper.findComponent({ name: 'ElTabs' }).vm.$emit('tab-change', 'OUTPATIENT')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('复诊预约时间')
+    expect(wrapper.text()).toMatch(/2026.*9.*8/)
+  })
+
   it('预出院看板展示已填报预计时间且已有实际出院时间的记录', async () => {
     const item = { id: 2, patientName: '已填报患者', gender: '女', inpatientNo: 'ZY-BOARD-001', admissionTimes: 1, departmentName: '康复科', doctorName: '王医生', plannedDischargeAt: '2026-09-05T10:00:00+08:00', actualDischargeAt: '2026-09-05T09:00:00+08:00', primaryDiagnosis: '脑卒中', abnormalCodes: [] }
     getMock.mockImplementation((url: string) => {

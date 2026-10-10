@@ -52,7 +52,7 @@ interface DetailRow {
   admittedAt: string | null
   plannedDischargeAt: string | null
   actualDischargeAt: string | null
-  outpatientAppointmentAt: string | null
+  latestOutpatientAppointmentAt: string | null
   outpatientArrived: boolean | null
   outpatientArrivalAt: string | null
   outpatientNoShowReason: string | null
@@ -302,7 +302,7 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
       <div v-else v-loading="detailLoading" class="mobile-only mobile-record-list analysis-mobile-list">
         <article v-for="row in detailRows" :key="row.id" class="mobile-record-card">
           <header><div><strong>{{ row.patientName }}</strong><span>{{ row.inpatientNo }} · 第{{ row.admissionTimes }}次住院</span></div><el-tag effect="light">{{ activeCategory }}</el-tag></header>
-          <dl><div><dt>所属科室</dt><dd>{{ row.departmentName || '—' }}</dd></div><div><dt>主管医生</dt><dd>{{ row.doctorName || '—' }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>预计出院</dt><dd>{{ formatTime(row.plannedDischargeAt) }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>实际出院</dt><dd>{{ formatTime(row.actualDischargeAt) }}</dd></div><template v-if="activeCategory === 'SPECIAL_PATIENT'"><div><dt>入院时间</dt><dd>{{ formatTime(row.admittedAt) }}</dd></div><div><dt>次要诊断</dt><dd>{{ row.secondaryDiagnosis || '—' }}</dd></div><div><dt>是否特殊患者</dt><dd>是</dd></div><div><dt>特殊原因</dt><dd>{{ row.specialReason || '—' }}</dd></div></template><div v-if="activeCategory === 'NUTRITION'"><dt>营养会诊</dt><dd>{{ formatTime(row.latestNutritionAppointmentAt) }}</dd></div><div v-if="activeCategory === 'HOME_REHAB'"><dt>居家康复</dt><dd>{{ formatTime(row.latestHomeRehabAppointmentAt) }}</dd></div><div v-if="activeCategory === 'OUTPATIENT'"><dt>复诊预约</dt><dd>{{ formatTime(row.outpatientAppointmentAt) }}</dd></div></dl>
+          <dl><div><dt>所属科室</dt><dd>{{ row.departmentName || '—' }}</dd></div><div><dt>主管医生</dt><dd>{{ row.doctorName || '—' }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>预计出院</dt><dd>{{ formatTime(row.plannedDischargeAt) }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>实际出院</dt><dd>{{ formatTime(row.actualDischargeAt) }}</dd></div><template v-if="activeCategory === 'SPECIAL_PATIENT'"><div><dt>入院时间</dt><dd>{{ formatTime(row.admittedAt) }}</dd></div><div><dt>次要诊断</dt><dd>{{ row.secondaryDiagnosis || '—' }}</dd></div><div><dt>是否特殊患者</dt><dd>是</dd></div><div><dt>特殊原因</dt><dd>{{ row.specialReason || '—' }}</dd></div></template><div v-if="activeCategory === 'NUTRITION'"><dt>营养会诊</dt><dd>{{ formatTime(row.latestNutritionAppointmentAt) }}</dd></div><div v-if="activeCategory === 'HOME_REHAB'"><dt>居家康复</dt><dd>{{ formatTime(row.latestHomeRehabAppointmentAt) }}</dd></div><div v-if="activeCategory === 'OUTPATIENT'"><dt>复诊预约</dt><dd>{{ formatTime(row.latestOutpatientAppointmentAt) }}</dd></div></dl>
           <template v-if="activeCategory === 'ABNORMAL'"><p class="mobile-record-alert"><strong>异常原因分类：</strong>{{ abnormalText(row) }}</p><p class="mobile-record-alert mobile-record-reason-report"><strong>异常原因填报：</strong>{{ row.abnormalReason || '—' }}</p></template>
         </article>
       </div>
@@ -335,7 +335,7 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
           <el-table-column label="最近居家康复预约" min-width="190"><template #default="scope">{{ formatTime(scope.row.latestHomeRehabAppointmentAt) }}</template></el-table-column>
         </template>
         <template v-else-if="activeCategory === 'OUTPATIENT'">
-          <el-table-column label="复诊预约时间" width="175"><template #default="scope">{{ formatTime(scope.row.outpatientAppointmentAt) }}</template></el-table-column>
+          <el-table-column label="复诊预约时间" width="175"><template #default="scope">{{ formatTime(scope.row.latestOutpatientAppointmentAt) }}</template></el-table-column>
           <el-table-column label="到诊状态" width="100"><template #default="scope">{{ scope.row.outpatientArrived === true ? '已到诊' : scope.row.outpatientArrived === false ? '未到诊' : '未跟踪' }}</template></el-table-column>
           <el-table-column label="实际到诊时间" width="175"><template #default="scope">{{ formatTime(scope.row.outpatientArrivalAt) }}</template></el-table-column>
           <el-table-column label="未到诊原因" min-width="180"><template #default="scope">{{ scope.row.outpatientNoShowReason || '—' }}</template></el-table-column>
