@@ -7,7 +7,7 @@ const {getMock,postMock,putMock}=vi.hoisted(()=>({getMock:vi.fn(),postMock:vi.fn
 vi.mock('../api/http',()=>({http:{get:getMock,post:postMock,put:putMock,delete:vi.fn()}}))
 vi.mock('../auth',()=>({hasPermission:vi.fn(()=>true)}))
 
-const row={id:1,encounterId:101,inpatientNo:'ZY001',admissionTimes:2,patientName:'张三',gender:'男',medicalInsuranceType:'城镇职工医保',departmentName:'康复一科',primaryDiagnosis:'脑卒中恢复期',doctorName:'李医生',admittedAt:'2026-09-01T08:00:00+08:00',plannedDischargeAt:'2026-09-05T08:00:00+08:00',actualDischargeAt:'2026-09-04T08:00:00+08:00',latestOutpatientAppointmentAt:'2026-09-10T08:00:00+08:00',latestNutritionAppointmentAt:'2026-09-06T08:00:00+08:00',latestHomeRehabAppointmentAt:'2026-09-07T08:00:00+08:00',latestFollowUpAt:'2026-09-11T08:00:00+08:00',status:'已出院',abnormalCodes:['DATE_MISMATCH','LATE_PLAN'],abnormalReason:'患者临时要求出院',specialPatient:false,followUpRequired:true}
+const row={id:1,encounterId:101,inpatientNo:'ZY001',admissionTimes:2,patientName:'张三',gender:'男',patientPhone:'13800138000',medicalInsuranceType:'城镇职工医保',departmentName:'康复一科',primaryDiagnosis:'脑卒中恢复期',doctorName:'李医生',admittedAt:'2026-09-01T08:00:00+08:00',plannedDischargeAt:'2026-09-05T08:00:00+08:00',actualDischargeAt:'2026-09-04T08:00:00+08:00',latestOutpatientAppointmentAt:'2026-09-10T08:00:00+08:00',latestNutritionAppointmentAt:'2026-09-06T08:00:00+08:00',latestHomeRehabAppointmentAt:'2026-09-07T08:00:00+08:00',latestFollowUpAt:'2026-09-11T08:00:00+08:00',status:'已出院',abnormalCodes:['DATE_MISMATCH','LATE_PLAN'],abnormalReason:'患者临时要求出院',specialPatient:false,followUpRequired:true}
 
 describe('DischargeManagementView',()=>{
   afterEach(()=>vi.useRealTimers())
@@ -29,7 +29,8 @@ describe('DischargeManagementView',()=>{
     expect(wrapper.text()).toContain('在院患者科室分布')
     expect(wrapper.text()).toContain('康复一科')
     expect(wrapper.text()).toContain('1 人')
-    for(const header of ['患者姓名','患者性别','医保类型','住院号','住院次数','所属科室','入院时间','主诊断','主管医生','预约复诊时间','预计出院时间','实际出院时间','预约营养会诊时间','预约居家康复时间','随访时间','状态','异常原因','操作'])expect(wrapper.text()).toContain(header)
+    for(const header of ['患者姓名','患者性别','联系电话','医保类型','住院号','住院次数','所属科室','入院时间','主诊断','主管医生','预约复诊时间','预计出院时间','实际出院时间','预约营养会诊时间','预约居家康复时间','随访时间','状态','异常原因','操作'])expect(wrapper.text()).toContain(header)
+    expect(wrapper.text()).toContain('13800138000')
     expect(wrapper.text()).toContain('预计与实际出院日期不一致；出院前12小时内填报；患者临时要求出院')
     expect(wrapper.text()).toContain('异常')
     expect(wrapper.find('.mobile-filter-toolbar').exists()).toBe(true)
@@ -79,6 +80,8 @@ describe('DischargeManagementView',()=>{
     await editButton!.trigger('click');await flushPromises()
     expect(wrapper.text()).toContain('编辑院后管理信息')
     expect(wrapper.find('.mobile-patient-summary').text()).toContain('城镇职工医保')
+    expect(wrapper.find('.mobile-patient-summary').text()).toContain('患者联系方式')
+    expect(wrapper.find('.mobile-patient-summary').text()).toContain('13800138000')
     expect(wrapper.text()).toContain('系统判定异常')
     expect(wrapper.text()).toContain('预计与实际出院日期不一致')
     expect(wrapper.text()).toContain('患者已出院，预计出院时间不可修改')

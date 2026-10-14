@@ -78,9 +78,10 @@ class HisGatewayClientTest {
     void mapsPatientInfoWithoutPlannedDischarge() {
         var rows=HisSyncCoordinator.mapPatients(List.of(Map.of(
                 "住院号","A001","住院次数","2","患者姓名","张某","所属科室","康复一科",
-                "预计出院时间","2026-09-10","医保类型","职工医保")));
+                "预计出院时间","2026-09-10","医保类型","职工医保","联系电话","13800138000")));
         assertThat(rows.getFirst().plannedDischargeAt).isNull();
         assertThat(rows.getFirst().medicalInsuranceType).isEqualTo("职工医保");
+        assertThat(rows.getFirst().patientPhone).isEqualTo("13800138000");
     }
 
     @Test

@@ -10,6 +10,7 @@ public record DischargeSummary(
         int admissionTimes,
         String patientName,
         String gender,
+        String patientPhone,
         String departmentName,
         String primaryDiagnosis,
         String secondaryDiagnosis,
@@ -46,7 +47,7 @@ public record DischargeSummary(
             OffsetDateTime latestNutritionAppointmentAt,OffsetDateTime latestHomeRehabAppointmentAt,OffsetDateTime latestFollowUpAt,
             String status,List<String> abnormalCodes,String abnormalReason,Boolean specialPatient,String specialReason,
             Boolean followUpRequired,String followUpDay7,String followUpDay30,String followUpDay60,String followUpDetailsJson) {
-        this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,departmentName,primaryDiagnosis,null,doctorName,doctorEmployeeNo,admittedAt,
+        this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,null,departmentName,primaryDiagnosis,null,doctorName,doctorEmployeeNo,admittedAt,
                 plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
                 outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
                 latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,null,specialReason,followUpRequired,
@@ -60,7 +61,7 @@ public record DischargeSummary(
             OffsetDateTime latestNutritionAppointmentAt,OffsetDateTime latestHomeRehabAppointmentAt,OffsetDateTime latestFollowUpAt,
             String status,List<String> abnormalCodes,String abnormalReason,Boolean specialPatient,String specialReason,
             Boolean followUpRequired,String followUpDay7,String followUpDay30,String followUpDay60,String followUpDetailsJson) {
-        this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,departmentName,primaryDiagnosis,null,doctorName,null,admittedAt,
+        this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,null,departmentName,primaryDiagnosis,null,doctorName,null,admittedAt,
                 plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
                 outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
                 latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,null,specialReason,followUpRequired,
