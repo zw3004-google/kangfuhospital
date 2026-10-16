@@ -29,7 +29,7 @@ describe('DischargeManagementView',()=>{
     expect(wrapper.text()).toContain('在院患者科室分布')
     expect(wrapper.text()).toContain('康复一科')
     expect(wrapper.text()).toContain('1 人')
-    for(const header of ['患者姓名','患者性别','联系电话','医保类型','住院号','住院次数','所属科室','入院时间','主诊断','主管医生','预约复诊时间','预计出院时间','实际出院时间','预约营养会诊时间','预约居家康复时间','随访时间','状态','异常原因','操作'])expect(wrapper.text()).toContain(header)
+    for(const header of ['患者姓名','患者性别','联系电话','医保类型','住院号','住院次数','所属科室','入院时间','主诊断','主管医生','预约复诊时间','预计出院时间','实际出院时间','预约营养会诊时间','预约居家康复时间','出院7天回访时间','出院30天回访时间','出院60天回访时间','状态','异常原因','操作'])expect(wrapper.text()).toContain(header)
     expect(wrapper.text()).toContain('13800138000')
     expect(wrapper.text()).toContain('预计与实际出院日期不一致；出院前12小时内填报；患者临时要求出院')
     expect(wrapper.text()).toContain('异常')

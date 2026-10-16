@@ -179,6 +179,23 @@ describe('DischargeAnalysisView 阶段1', () => {
     expect(wrapper.text()).toContain('2026')
   })
 
+  it('院后管理列表在各随访结果前展示对应回访时间', async () => {
+    const item = { id: 5, patientName: '随访患者', inpatientNo: 'ZY-FOLLOW-001', admissionTimes: 1, followUpRequired: true, followUpDay7: '恢复良好', followUpDay30: '一般', followUpDay60: '恢复良好', followUpDetailsJson: JSON.stringify([{ day: 7, followUpAt: '2026-09-11T09:00:00+08:00' }, { day: 30, followUpAt: '2026-10-04T09:00:00+08:00' }, { day: 60, followUpAt: '2026-11-03T09:00:00+08:00' }]), abnormalCodes: [] }
+    getMock.mockImplementation((url: string, config?: { params?: { category?: string } }) => {
+      if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })
+      if (url.endsWith('filter-options')) return Promise.resolve({ data: { data: [] } })
+      const followUp = config?.params?.category === 'FOLLOW_UP'
+      return Promise.resolve({ data: { data: { items: followUp ? [item] : [], total: followUp ? 1 : 0 } } })
+    })
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    wrapper.findComponent({ name: 'ElTabs' }).vm.$emit('tab-change', 'FOLLOW_UP')
+    await flushPromises()
+
+    for (const label of ['第7天随访时间', '第7天随访', '第30天随访时间', '第30天随访', '第60天随访时间', '第60天随访']) expect(wrapper.text()).toContain(label)
+    expect(wrapper.text()).toMatch(/2026.*9.*11/)
+  })
+
   it('预出院看板将较早的预计出院时间排在前面', async () => {
     getMock.mockImplementation((url: string) => {
       if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })

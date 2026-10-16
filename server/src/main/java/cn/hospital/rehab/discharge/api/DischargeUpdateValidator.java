@@ -15,11 +15,6 @@ final class DischargeUpdateValidator {
             throw new IllegalArgumentException("患者出院后不可修改预计出院时间");
     }
 
-    static void validateAfter(DischargeSummary updated) {
-        if (!Boolean.TRUE.equals(updated.specialPatient()) && !Boolean.TRUE.equals(updated.turnoverPatient()) && !updated.abnormalCodes().isEmpty() && blank(updated.abnormalReason()))
-            throw new IllegalArgumentException("异常患者必须填写异常原因");
-    }
-
     private static boolean sameTime(String requested,OffsetDateTime current){
         if(requested.isBlank())return current==null;
         try{return OffsetDateTime.parse(requested).isEqual(current);}catch(Exception ex){throw new IllegalArgumentException("预计出院时间格式不正确");}

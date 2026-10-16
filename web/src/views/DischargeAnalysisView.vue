@@ -63,6 +63,7 @@ interface DetailRow {
   followUpDay7: string | null
   followUpDay30: string | null
   followUpDay60: string | null
+  followUpDetailsJson: string | null
   abnormalCodes: string[]
   abnormalReason: string | null
   specialPatient: boolean
@@ -242,6 +243,7 @@ const triggerReminder = async () => {
 const formatTime = (value: string | null) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'
 const abnormalLabels: Record<string, string> = { LATE_PLAN: '出院前12小时内填报', MISSING_PLAN: '未填报预计出院时间', DATE_MISMATCH: '预计与实际出院日期不一致' }
 const abnormalText = (row: DetailRow) => (row.abnormalCodes || []).map(code => abnormalLabels[code] || code).join('；') || '—'
+const followUpTime = (row: DetailRow, day: number) => { try { return JSON.parse(row.followUpDetailsJson || '[]').find((item: { day: number; followUpAt?: string }) => item.day === day)?.followUpAt || null } catch { return null } }
 
 const resize = () => chart?.resize()
 onMounted(() => { window.addEventListener('resize', resize); load(); loadDepartments(); loadDetails() })
@@ -324,8 +326,11 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
         </template>
         <template v-else-if="activeCategory === 'FOLLOW_UP'">
           <el-table-column label="实际出院时间" width="175"><template #default="scope">{{ formatTime(scope.row.actualDischargeAt) }}</template></el-table-column>
+          <el-table-column label="第7天随访时间" min-width="180"><template #default="scope">{{ formatTime(followUpTime(scope.row, 7)) }}</template></el-table-column>
           <el-table-column label="第7天随访" min-width="160"><template #default="scope">{{ scope.row.followUpDay7 || '未回访' }}</template></el-table-column>
+          <el-table-column label="第30天随访时间" min-width="180"><template #default="scope">{{ formatTime(followUpTime(scope.row, 30)) }}</template></el-table-column>
           <el-table-column label="第30天随访" min-width="160"><template #default="scope">{{ scope.row.followUpRequired === false ? '无需随访' : scope.row.followUpDay30 || '未回访' }}</template></el-table-column>
+          <el-table-column label="第60天随访时间" min-width="180"><template #default="scope">{{ formatTime(followUpTime(scope.row, 60)) }}</template></el-table-column>
           <el-table-column label="第60天随访" min-width="160"><template #default="scope">{{ scope.row.followUpRequired === false ? '无需随访' : scope.row.followUpDay60 || '未回访' }}</template></el-table-column>
         </template>
         <template v-else-if="activeCategory === 'NUTRITION'">
