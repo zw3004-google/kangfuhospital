@@ -3,6 +3,9 @@ package cn.hospital.rehab.discharge.push;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,5 +34,16 @@ class DischargeReminderPreviewTest {
             assertThat(item.messagePreview()).contains("姓名脱敏").contains("住院号");
         });
         assertThat(preview.items().get(3).triggerBasis()).contains("填报异常");
+    }
+
+    @Test
+    void immediatelyNotifiesOnlySameDayAppointmentsSavedAtOrAfterEight() {
+        ZonedDateTime afterEight = ZonedDateTime.of(2026, 10, 18, 8, 0, 0, 0, ZoneId.of("Asia/Shanghai"));
+        assertThat(DischargeReminderScheduler.shouldImmediatelyNotifyOutpatient(
+                OffsetDateTime.parse("2026-10-18T16:00:00+08:00"), afterEight)).isTrue();
+        assertThat(DischargeReminderScheduler.shouldImmediatelyNotifyOutpatient(
+                OffsetDateTime.parse("2026-10-18T16:00:00+08:00"), afterEight.minusMinutes(1))).isFalse();
+        assertThat(DischargeReminderScheduler.shouldImmediatelyNotifyOutpatient(
+                OffsetDateTime.parse("2026-10-19T09:00:00+08:00"), afterEight)).isFalse();
     }
 }

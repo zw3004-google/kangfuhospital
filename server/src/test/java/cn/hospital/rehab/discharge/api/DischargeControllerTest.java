@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -108,5 +109,26 @@ class DischargeControllerTest {
         verify(fields).require(authentication,"FIELD_OUTPATIENT");
         verify(fields).require(authentication,"FIELD_FOLLOW_UP");
         verify(reminders).createLateFollowUpReminders(current.id(),"[]");
+    }
+
+    @Test
+    void updateCreatesOutpatientAppointmentMessagesWhenDoctorChangesAppointmentTime() {
+        when(scopes.resolve(authentication)).thenReturn(scope);
+        DischargeSummary before = mock(DischargeSummary.class);
+        DischargeSummary after = mock(DischargeSummary.class);
+        OffsetDateTime oldAppointment = OffsetDateTime.parse("2026-10-20T09:00:00+08:00");
+        OffsetDateTime newAppointment = OffsetDateTime.parse("2026-10-21T09:00:00+08:00");
+        when(before.latestOutpatientAppointmentAt()).thenReturn(oldAppointment);
+        when(after.latestOutpatientAppointmentAt()).thenReturn(newAppointment);
+        when(after.id()).thenReturn(88L);
+        UpdateDischargeRequest request = new UpdateDischargeRequest(null, null, null, null, null,
+                null, null, null, null, "2026-10-21T09:00:00+08:00", null, null, null, null, null, null);
+        when(repository.find(88L, scope)).thenReturn(before);
+        when(repository.update(88L, request, scope)).thenReturn(after);
+
+        controller.update(authentication, mock(HttpServletRequest.class), 88L, request);
+
+        verify(reminders).recordOutpatientAppointmentChange(88L, oldAppointment, newAppointment);
+        verify(reminders, never()).createLateFollowUpReminders(after.id(), null);
     }
 }

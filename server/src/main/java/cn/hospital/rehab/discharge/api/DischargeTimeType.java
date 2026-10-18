@@ -7,7 +7,10 @@ public enum DischargeTimeType {
     OUTPATIENT,
     NUTRITION,
     HOME_REHAB,
-    FOLLOW_UP;
+    FOLLOW_UP,
+    FOLLOW_UP_DAY7,
+    FOLLOW_UP_DAY30,
+    FOLLOW_UP_DAY60;
 
     public static DischargeTimeType parse(String value) {
         if (value == null || value.isBlank()) return null;

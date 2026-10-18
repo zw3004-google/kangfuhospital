@@ -196,6 +196,22 @@ describe('DischargeAnalysisView 阶段1', () => {
     expect(wrapper.text()).toMatch(/2026.*9.*11/)
   })
 
+  it('院后管理列表按第30天随访时间筛选', async () => {
+    getMock.mockImplementation((url: string) => Promise.resolve({ data: { data: url === '/discharge/analysis' ? metrics : url.endsWith('filter-options') ? [] : { items: [], total: 0 } } }))
+    const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    wrapper.findComponent({ name: 'ElTabs' }).vm.$emit('tab-change', 'FOLLOW_UP')
+    await flushPromises()
+    expect(wrapper.text()).toContain('第7天随访时间')
+    expect(wrapper.text()).toContain('第30天随访时间')
+    expect(wrapper.text()).toContain('第60天随访时间')
+    await wrapper.findAllComponents({ name: 'ElSelect' })[1].setValue('FOLLOW_UP_DAY30')
+    await wrapper.findAll('button').find(button => button.text() === '查询')!.trigger('click')
+    await flushPromises()
+
+    expect(getMock).toHaveBeenCalledWith('/discharge/records', { params: expect.objectContaining({ category: 'FOLLOW_UP', timeType: 'FOLLOW_UP_DAY30', page: 1, pageSize: 50 }) })
+  })
+
   it('预出院看板将较早的预计出院时间排在前面', async () => {
     getMock.mockImplementation((url: string) => {
       if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })

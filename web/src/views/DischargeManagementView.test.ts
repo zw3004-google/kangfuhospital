@@ -100,4 +100,26 @@ describe('DischargeManagementView',()=>{
     expect(getMock).toHaveBeenCalledWith('/discharge/consultations',{params:{encounterId:101,type:'NUTRITION'}})
     expect(getMock).toHaveBeenCalledWith('/discharge/consultations',{params:{encounterId:101,type:'HOME'}})
   },30000)
+
+  it('异常且已出院患者保存其他信息时不提交不可编辑的预计出院时间',async()=>{
+    const detail={...row,followUpDay7:'',followUpDay30:'',followUpDay60:'',specialReason:null}
+    getMock.mockImplementation((url:string)=>{
+      if(url==='/discharge/records/filter-options')return Promise.resolve({data:{data:[]}})
+      if(url==='/discharge/records/summary')return Promise.resolve({data:{data:{}}})
+      if(url==='/discharge/records/1')return Promise.resolve({data:{data:detail}})
+      if(url==='/discharge/records/1/history')return Promise.resolve({data:{data:[]}})
+      if(url==='/discharge/consultations')return Promise.resolve({data:{data:[]}})
+      return Promise.resolve({data:{data:{items:[detail],total:1,page:1,pageSize:10}}})
+    })
+    putMock.mockResolvedValue({data:{data:detail}})
+    const wrapper=mount(DischargeManagementView,{global:{plugins:[ElementPlus],directives:{permission:()=>{}}}})
+    await flushPromises()
+    await wrapper.findAll('button').find(button=>button.text()==='编辑')!.trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find(button=>button.text()==='保存')!.trigger('click')
+    await flushPromises()
+
+    expect(putMock).toHaveBeenCalledWith('/discharge/records/1',expect.not.objectContaining({plannedDischargeAt:expect.anything()}))
+    expect(wrapper.text()).toContain('异常原因填报（可选）')
+  },30000)
 })

@@ -99,7 +99,7 @@ let detailRequestSequence = 0
 
 const timeTypeOptions: Record<DetailCategory, Array<[string, string]>> = {
   BOARD: [['ADMITTED', '入院时间'], ['PLANNED_DISCHARGE', '预计出院时间']],
-  FOLLOW_UP: [['ACTUAL_DISCHARGE', '实际出院时间'], ['FOLLOW_UP', '随访时间']],
+  FOLLOW_UP: [['ACTUAL_DISCHARGE', '实际出院时间'], ['FOLLOW_UP_DAY7', '第7天随访时间'], ['FOLLOW_UP_DAY30', '第30天随访时间'], ['FOLLOW_UP_DAY60', '第60天随访时间']],
   NUTRITION: [['NUTRITION', '营养会诊预约时间']],
   HOME_REHAB: [['HOME_REHAB', '居家康复预约时间']],
   OUTPATIENT: [['OUTPATIENT', '复诊预约时间']],

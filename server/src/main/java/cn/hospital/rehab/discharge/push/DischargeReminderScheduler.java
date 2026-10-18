@@ -31,6 +31,7 @@ public class DischargeReminderScheduler {
         createConsultation("NUTRITION", today);
         createConsultation("HOME", today);
         createFollowUp(today);
+        createPreviousDayOutpatientAppointmentReminders(today);
         createAbnormalReport(today);
         createPresidentOperationReport(today);
     }
@@ -157,6 +158,102 @@ public class DischargeReminderScheduler {
         } catch (Exception ignored) {
             // Malformed legacy JSON must not block a successful patient-record save.
         }
+    }
+
+    /** Records a changed appointment and immediately notifies only a same-day appointment saved after 08:00. */
+    public void recordOutpatientAppointmentChange(long dischargeRecordId,
+                                                   OffsetDateTime beforeAppointmentAt,
+                                                   OffsetDateTime appointmentAt) {
+        if (appointmentAt == null || java.util.Objects.equals(beforeAppointmentAt, appointmentAt)) return;
+        ZonedDateTime now = ZonedDateTime.now(SHANGHAI);
+        boolean immediate = shouldImmediatelyNotifyOutpatient(appointmentAt, now);
+        long eventId = jdbc.sql("""
+                INSERT INTO discharge_outpatient_appointment_notice(
+                    discharge_record_id,appointment_at,configured_at,immediate_notified)
+                VALUES (:recordId,:appointmentAt,:configuredAt,:immediate)
+                RETURNING id
+                """).param("recordId", dischargeRecordId).param("appointmentAt", appointmentAt)
+                .param("configuredAt", now.toOffsetDateTime()).param("immediate", immediate)
+                .query(Long.class).single();
+        if (immediate) createImmediateOutpatientAppointmentReminder(eventId, now.toLocalDate());
+    }
+
+    static boolean shouldImmediatelyNotifyOutpatient(OffsetDateTime appointmentAt, ZonedDateTime now) {
+        ZonedDateTime localAppointment = appointmentAt.atZoneSameInstant(SHANGHAI);
+        return localAppointment.toLocalDate().equals(now.toLocalDate())
+                && !now.toLocalTime().isBefore(DAILY_REMINDER_TIME);
+    }
+
+    private void createImmediateOutpatientAppointmentReminder(long eventId, LocalDate day) {
+        String reminderType = "OUTPATIENT_APPOINTMENT_IMMEDIATE_" + eventId;
+        String sql = """
+                WITH created AS (
+                INSERT INTO push_task(
+                    business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,
+                    recipient_user_id,scope_type,content,status,scheduled_at)
+                SELECT 'DISCHARGE',:reminderType,:day,u.wecom_user_id,u.display_name,
+                       u.id,'DEPARTMENT',
+                       %s||'患者，住院号：'||e.inpatient_no||'，已预约复诊时间：'||
+                       TO_CHAR(d.outpatient_appointment_at AT TIME ZONE 'Asia/Shanghai','YYYY年MM月DD日 HH24:MI')||'，请及时跟进。',
+                       'PENDING',CURRENT_TIMESTAMP
+                  FROM discharge_outpatient_appointment_notice n
+                  JOIN discharge_record d ON d.id=n.discharge_record_id
+                  JOIN patient_encounter e ON e.id=d.encounter_id
+                  JOIN sys_user u ON u.enabled=true
+                  JOIN sys_user_department ud ON ud.user_id=u.id
+                  JOIN sys_department access_department ON access_department.id=ud.department_id
+                      AND access_department.enabled=true AND access_department.department_code='OUTPATIENT'
+                 WHERE n.id=:eventId
+                   AND d.outpatient_appointment_at=n.appointment_at
+                   AND BTRIM(COALESCE(u.wecom_user_id,''))<>''
+                ON CONFLICT DO NOTHING
+                RETURNING id
+                )
+                INSERT INTO push_task_scope(task_id,department_id)
+                SELECT created.id,access_department.id
+                  FROM created
+                 CROSS JOIN sys_department access_department
+                 WHERE access_department.enabled=true AND access_department.department_code='OUTPATIENT'
+                ON CONFLICT DO NOTHING
+                """.formatted(MASKED_NAME);
+        jdbc.sql(sql).param("reminderType", reminderType).param("day", day).param("eventId", eventId).update();
+    }
+
+    private void createPreviousDayOutpatientAppointmentReminders(LocalDate day) {
+        String sql = """
+                WITH created AS (
+                INSERT INTO push_task(
+                    business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,
+                    recipient_user_id,scope_type,content,status,scheduled_at)
+                SELECT 'DISCHARGE','OUTPATIENT_APPOINTMENT_DAILY',:day,u.wecom_user_id,u.display_name,
+                       u.id,'DEPARTMENT',m.content,'PENDING',CURRENT_TIMESTAMP
+                  FROM sys_user u
+                  JOIN sys_user_department ud ON ud.user_id=u.id
+                  JOIN sys_department access_department ON access_department.id=ud.department_id
+                      AND access_department.enabled=true AND access_department.department_code='OUTPATIENT'
+                  CROSS JOIN LATERAL (
+                      SELECT STRING_AGG(%s||'患者，住院号：'||e.inpatient_no||'，已预约复诊时间：'||
+                          TO_CHAR(n.appointment_at AT TIME ZONE 'Asia/Shanghai','YYYY年MM月DD日 HH24:MI')||'。',
+                          E'\n' ORDER BY e.inpatient_no,n.appointment_at) AS content
+                        FROM discharge_outpatient_appointment_notice n
+                        JOIN discharge_record d ON d.id=n.discharge_record_id
+                        JOIN patient_encounter e ON e.id=d.encounter_id
+                       WHERE n.immediate_notified=false
+                         AND (n.configured_at AT TIME ZONE 'Asia/Shanghai')::date=:previousDay
+                         AND d.outpatient_appointment_at=n.appointment_at
+                  ) m
+                 WHERE u.enabled=true AND BTRIM(COALESCE(u.wecom_user_id,''))<>'' AND m.content IS NOT NULL
+                ON CONFLICT DO NOTHING
+                RETURNING id
+                )
+                INSERT INTO push_task_scope(task_id,department_id)
+                SELECT created.id,access_department.id
+                  FROM created
+                 CROSS JOIN sys_department access_department
+                 WHERE access_department.enabled=true AND access_department.department_code='OUTPATIENT'
+                ON CONFLICT DO NOTHING
+                """.formatted(MASKED_NAME);
+        jdbc.sql(sql).param("day", day).param("previousDay", day.minusDays(1)).update();
     }
 
     private void createLateFollowUpReminder(long dischargeRecordId, int followUpDay) {
