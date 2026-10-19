@@ -42,4 +42,14 @@ describe('预计出院患者业务分区',()=>{
     const addButton=wrapper.findAll('button').find(button=>button.text()==='新增居家康复')
     expect(addButton?.attributes('disabled')).toBeDefined()
   },15000)
+
+  it('康复医师出诊分区加载独立的康复预约记录',async()=>{
+    getMock.mockResolvedValue({data:{data:[{id:2,encounterId:101,appointmentAt:'2026-09-09T09:00:00+08:00',executorName:'康复医师甲',executionResult:'已执行'}]}})
+    const wrapper=mount(ConsultationSection,{props:{encounterId:101,type:'REHAB_DOCTOR'},global:{plugins:[ElementPlus]}})
+    await flushPromises()
+
+    expect(getMock).toHaveBeenCalledWith('/discharge/consultations',{params:{encounterId:101,type:'REHAB_DOCTOR'}})
+    expect(wrapper.text()).toContain('康复医生填报')
+    expect(wrapper.text()).toContain('新增康复预约')
+  })
 })

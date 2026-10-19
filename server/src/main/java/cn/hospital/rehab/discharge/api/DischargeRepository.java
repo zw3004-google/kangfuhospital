@@ -107,6 +107,7 @@ public class DischargeRepository {
                 follow_up_required=COALESCE(:followUp,d.follow_up_required), follow_up_day7=COALESCE(:day7,d.follow_up_day7),
                 follow_up_day30=COALESCE(:day30,d.follow_up_day30), follow_up_day60=COALESCE(:day60,d.follow_up_day60),
                 outpatient_appointment_at=COALESCE(:outpatient,d.outpatient_appointment_at),
+                rehab_doctor_appointment_at=COALESCE(:rehabDoctorAppointment,d.rehab_doctor_appointment_at),
                 outpatient_arrived=COALESCE(:outpatientArrived,d.outpatient_arrived),
                 outpatient_arrival_at=COALESCE(:outpatientArrivalAt,d.outpatient_arrival_at),
                 outpatient_reporter=COALESCE(:outpatientReporter,d.outpatient_reporter),
@@ -125,6 +126,7 @@ public class DischargeRepository {
                 .param("followUp", request.followUpRequired()).param("day7", request.followUpDay7())
                 .param("day30", request.followUpDay30()).param("day60", request.followUpDay60())
                 .param("outpatient", parseDate(request.outpatientAppointmentAt())).param("outpatientArrived",request.outpatientArrived())
+                .param("rehabDoctorAppointment",parseDate(request.rehabDoctorAppointmentAt()))
                 .param("outpatientArrivalAt",parseDate(request.outpatientArrivalAt())).param("outpatientReporter",request.outpatientReporter())
                 .param("outpatientNoShowReason",request.outpatientNoShowReason()).param("followUpDetails",request.followUpDetailsJson())
                 .param("expectedUpdatedAt",request.expectedUpdatedAt()).param("id", id);
@@ -141,6 +143,8 @@ public class DischargeRepository {
                        e.gender, e.patient_phone, e.primary_diagnosis, e.secondary_diagnosis, e.medical_insurance_type, e.admitted_at, e.doctor_name_source, e.doctor_employee_no, dpt.department_name,
                        (SELECT MAX(c.appointment_at) FROM discharge_nutrition_consultation c
                          WHERE c.encounter_id=e.id AND c.deleted=false) AS latest_nutrition_appointment_at,
+                       (SELECT MAX(c.appointment_at) FROM discharge_rehab_doctor_consultation c
+                         WHERE c.encounter_id=e.id AND c.deleted=false) AS latest_rehab_doctor_appointment_at,
                        (SELECT MAX(c.appointment_at) FROM discharge_home_rehab_consultation c
                          WHERE c.encounter_id=e.id AND c.deleted=false) AS latest_home_rehab_appointment_at,
                        GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) AS latest_follow_up_at
@@ -152,6 +156,7 @@ public class DischargeRepository {
                    AND (:category='' OR
                         (:category='BOARD' AND d.planned_discharge_at IS NOT NULL AND COALESCE(d.is_turnover_patient,FALSE)=FALSE) OR
                         (:category='FOLLOW_UP' AND d.actual_discharge_at IS NOT NULL) OR
+                        (:category='REHAB_DOCTOR' AND EXISTS(SELECT 1 FROM discharge_rehab_doctor_consultation cr WHERE cr.encounter_id=e.id AND cr.deleted=false)) OR
                         (:category='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation cn WHERE cn.encounter_id=e.id AND cn.deleted=false)) OR
                         (:category='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation ch WHERE ch.encounter_id=e.id AND ch.deleted=false)) OR
                         (:category='OUTPATIENT' AND d.outpatient_appointment_at IS NOT NULL) OR
@@ -162,6 +167,7 @@ public class DischargeRepository {
                         (:timeType='PLANNED_DISCHARGE' AND d.planned_discharge_at >= COALESCE(:startAt,d.planned_discharge_at) AND d.planned_discharge_at < COALESCE(:endAt,d.planned_discharge_at + INTERVAL '1 microsecond')) OR
                         (:timeType='ACTUAL_DISCHARGE' AND d.actual_discharge_at >= COALESCE(:startAt,d.actual_discharge_at) AND d.actual_discharge_at < COALESCE(:endAt,d.actual_discharge_at + INTERVAL '1 microsecond')) OR
                         (:timeType='OUTPATIENT' AND d.outpatient_appointment_at >= COALESCE(:startAt,d.outpatient_appointment_at) AND d.outpatient_appointment_at < COALESCE(:endAt,d.outpatient_appointment_at + INTERVAL '1 microsecond')) OR
+                        (:timeType='REHAB_DOCTOR' AND EXISTS(SELECT 1 FROM discharge_rehab_doctor_consultation cr WHERE cr.encounter_id=e.id AND cr.deleted=false AND cr.appointment_at >= COALESCE(:startAt,cr.appointment_at) AND cr.appointment_at < COALESCE(:endAt,cr.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation n WHERE n.encounter_id=e.id AND n.deleted=false AND n.appointment_at >= COALESCE(:startAt,n.appointment_at) AND n.appointment_at < COALESCE(:endAt,n.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation h WHERE h.encounter_id=e.id AND h.deleted=false AND h.appointment_at >= COALESCE(:startAt,h.appointment_at) AND h.appointment_at < COALESCE(:endAt,h.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='FOLLOW_UP' AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) >= COALESCE(:startAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at)) AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) < COALESCE(:endAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) + INTERVAL '1 microsecond')) OR
@@ -180,6 +186,7 @@ public class DischargeRepository {
                    AND (:category='' OR
                         (:category='BOARD' AND d.planned_discharge_at IS NOT NULL AND COALESCE(d.is_turnover_patient,FALSE)=FALSE) OR
                         (:category='FOLLOW_UP' AND d.actual_discharge_at IS NOT NULL) OR
+                        (:category='REHAB_DOCTOR' AND EXISTS(SELECT 1 FROM discharge_rehab_doctor_consultation cr WHERE cr.encounter_id=e.id AND cr.deleted=false)) OR
                         (:category='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation cn WHERE cn.encounter_id=e.id AND cn.deleted=false)) OR
                         (:category='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation ch WHERE ch.encounter_id=e.id AND ch.deleted=false)) OR
                         (:category='OUTPATIENT' AND d.outpatient_appointment_at IS NOT NULL) OR
@@ -190,6 +197,7 @@ public class DischargeRepository {
                         (:timeType='PLANNED_DISCHARGE' AND d.planned_discharge_at >= COALESCE(:startAt,d.planned_discharge_at) AND d.planned_discharge_at < COALESCE(:endAt,d.planned_discharge_at + INTERVAL '1 microsecond')) OR
                         (:timeType='ACTUAL_DISCHARGE' AND d.actual_discharge_at >= COALESCE(:startAt,d.actual_discharge_at) AND d.actual_discharge_at < COALESCE(:endAt,d.actual_discharge_at + INTERVAL '1 microsecond')) OR
                         (:timeType='OUTPATIENT' AND d.outpatient_appointment_at >= COALESCE(:startAt,d.outpatient_appointment_at) AND d.outpatient_appointment_at < COALESCE(:endAt,d.outpatient_appointment_at + INTERVAL '1 microsecond')) OR
+                        (:timeType='REHAB_DOCTOR' AND EXISTS(SELECT 1 FROM discharge_rehab_doctor_consultation cr WHERE cr.encounter_id=e.id AND cr.deleted=false AND cr.appointment_at >= COALESCE(:startAt,cr.appointment_at) AND cr.appointment_at < COALESCE(:endAt,cr.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='NUTRITION' AND EXISTS(SELECT 1 FROM discharge_nutrition_consultation n WHERE n.encounter_id=e.id AND n.deleted=false AND n.appointment_at >= COALESCE(:startAt,n.appointment_at) AND n.appointment_at < COALESCE(:endAt,n.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='HOME_REHAB' AND EXISTS(SELECT 1 FROM discharge_home_rehab_consultation h WHERE h.encounter_id=e.id AND h.deleted=false AND h.appointment_at >= COALESCE(:startAt,h.appointment_at) AND h.appointment_at < COALESCE(:endAt,h.appointment_at + INTERVAL '1 microsecond'))) OR
                         (:timeType='FOLLOW_UP' AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) >= COALESCE(:startAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at)) AND GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) < COALESCE(:endAt,GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) + INTERVAL '1 microsecond')) OR
@@ -227,6 +235,8 @@ public class DischargeRepository {
                        e.gender,e.patient_phone,e.primary_diagnosis,e.secondary_diagnosis,e.medical_insurance_type,e.admitted_at,e.doctor_name_source,e.doctor_employee_no,dpt.department_name,
                        (SELECT MAX(c.appointment_at) FROM discharge_nutrition_consultation c
                          WHERE c.encounter_id=e.id AND c.deleted=false) AS latest_nutrition_appointment_at,
+                       (SELECT MAX(c.appointment_at) FROM discharge_rehab_doctor_consultation c
+                         WHERE c.encounter_id=e.id AND c.deleted=false) AS latest_rehab_doctor_appointment_at,
                        (SELECT MAX(c.appointment_at) FROM discharge_home_rehab_consultation c
                          WHERE c.encounter_id=e.id AND c.deleted=false) AS latest_home_rehab_appointment_at,
                        GREATEST(d.follow_up_day7_at,d.follow_up_day30_at,d.follow_up_day60_at) AS latest_follow_up_at
@@ -244,7 +254,7 @@ public class DischargeRepository {
 
     DischargeSummary map(ResultSet r, int row) throws SQLException {
         OffsetDateTime planned=r.getObject("planned_discharge_at",OffsetDateTime.class), actual=r.getObject("actual_discharge_at",OffsetDateTime.class);
-        return new DischargeSummary(r.getLong("id"),r.getLong("encounter_id"),r.getString("inpatient_no"),r.getInt("admission_times"),r.getString("patient_name"),r.getString("gender"),r.getString("patient_phone"),r.getString("department_name"),r.getString("primary_diagnosis"),r.getString("secondary_diagnosis"),r.getString("doctor_name_source"),r.getString("doctor_employee_no"),r.getObject("admitted_at",OffsetDateTime.class),planned,actual,r.getObject("outpatient_appointment_at",OffsetDateTime.class),(Boolean)r.getObject("outpatient_arrived"),r.getObject("outpatient_arrival_at",OffsetDateTime.class),r.getString("outpatient_reporter"),r.getString("outpatient_no_show_reason"),r.getObject("latest_nutrition_appointment_at",OffsetDateTime.class),r.getObject("latest_home_rehab_appointment_at",OffsetDateTime.class),r.getObject("latest_follow_up_at",OffsetDateTime.class),planned==null?"未填报":actual==null?"已填报":"已出院",parseAbnormalCodes(r.getString("abnormal_codes")),r.getString("abnormal_reason"),r.getBoolean("is_special_patient"),r.getBoolean("is_turnover_patient"),r.getString("special_reason"),(Boolean)r.getObject("follow_up_required"),r.getString("follow_up_day7"),r.getString("follow_up_day30"),r.getString("follow_up_day60"),r.getString("follow_up_details"),r.getString("medical_insurance_type"),r.getObject("updated_at",OffsetDateTime.class));
+        return new DischargeSummary(r.getLong("id"),r.getLong("encounter_id"),r.getString("inpatient_no"),r.getInt("admission_times"),r.getString("patient_name"),r.getString("gender"),r.getString("patient_phone"),r.getString("department_name"),r.getString("primary_diagnosis"),r.getString("secondary_diagnosis"),r.getString("doctor_name_source"),r.getString("doctor_employee_no"),r.getObject("admitted_at",OffsetDateTime.class),planned,actual,r.getObject("outpatient_appointment_at",OffsetDateTime.class),r.getObject("rehab_doctor_appointment_at",OffsetDateTime.class),(Boolean)r.getObject("outpatient_arrived"),r.getObject("outpatient_arrival_at",OffsetDateTime.class),r.getString("outpatient_reporter"),r.getString("outpatient_no_show_reason"),r.getObject("latest_rehab_doctor_appointment_at",OffsetDateTime.class),r.getObject("latest_nutrition_appointment_at",OffsetDateTime.class),r.getObject("latest_home_rehab_appointment_at",OffsetDateTime.class),r.getObject("latest_follow_up_at",OffsetDateTime.class),planned==null?"未填报":actual==null?"已填报":"已出院",parseAbnormalCodes(r.getString("abnormal_codes")),r.getString("abnormal_reason"),r.getBoolean("is_special_patient"),r.getBoolean("is_turnover_patient"),r.getString("special_reason"),(Boolean)r.getObject("follow_up_required"),r.getString("follow_up_day7"),r.getString("follow_up_day30"),r.getString("follow_up_day60"),r.getString("follow_up_details"),r.getString("medical_insurance_type"),r.getObject("updated_at",OffsetDateTime.class));
     }
 
     static List<String> parseAbnormalCodes(String value) {
@@ -275,7 +285,7 @@ public class DischargeRepository {
     private static String normalizeCategory(String category){
         if(category==null||category.isBlank())return "";
         String value=category.trim().toUpperCase();
-        if(!Set.of("BOARD","FOLLOW_UP","NUTRITION","HOME_REHAB","OUTPATIENT","ABNORMAL","SPECIAL_PATIENT").contains(value))
+        if(!Set.of("BOARD","FOLLOW_UP","REHAB_DOCTOR","NUTRITION","HOME_REHAB","OUTPATIENT","ABNORMAL","SPECIAL_PATIENT").contains(value))
             throw new IllegalArgumentException("不支持的统计明细类型");
         return value;
     }

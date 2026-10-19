@@ -35,13 +35,15 @@ public class DischargeReminderController {
         LocalDate day = LocalDate.now(SHANGHAI);
         long nutrition = countEligibleConsultations("discharge_nutrition_consultation", day);
         long homeRehab = countEligibleConsultations("discharge_home_rehab_consultation", day);
+        long rehabDoctor = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE rehab_doctor_appointment_at::date=:day")
+                .param("day", day).query(Long.class).single();
         long followUp = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE actual_discharge_at::date IN (:day7,:day30,:day60) AND actual_discharge_at>=:goLiveAt")
                 .param("day7", day.minusDays(7)).param("day30", day.minusDays(30)).param("day60", day.minusDays(60)).param("goLiveAt", PUSH_GO_LIVE_AT)
                 .query(Long.class).single();
         var cutoff = day.atTime(8, 0).atZone(SHANGHAI).toOffsetDateTime();
         long abnormal = jdbc.sql("SELECT COUNT(DISTINCT encounter_id) FROM discharge_record WHERE actual_discharge_at>=:goLiveAt AND COALESCE(abnormal_codes,'')<>'' AND updated_at<=:cutoff")
                 .param("cutoff", cutoff).param("goLiveAt", PUSH_GO_LIVE_AT).query(Long.class).single();
-        return ApiResponse.ok(Preview.of(day, nutrition, homeRehab, followUp, abnormal));
+        return ApiResponse.ok(Preview.of(day, nutrition, homeRehab, rehabDoctor, followUp, abnormal));
     }
 
     @PostMapping("/trigger")
@@ -66,12 +68,13 @@ public class DischargeReminderController {
                 .param("day", day).query(Long.class).single();
     }
 
-    public record Preview(LocalDate reminderDate, long nutritionCount, long homeRehabCount,
+    public record Preview(LocalDate reminderDate, long nutritionCount, long homeRehabCount, long rehabDoctorCount,
                           long followUpCount, long unplannedCount, long totalPatients, List<ReminderItem> items) {
-        static Preview of(LocalDate day, long nutrition, long homeRehab, long followUp, long abnormal) {
-            return new Preview(day, nutrition, homeRehab, followUp, abnormal, nutrition + homeRehab + followUp + abnormal, List.of(
+        static Preview of(LocalDate day, long nutrition, long homeRehab, long rehabDoctor, long followUp, long abnormal) {
+            return new Preview(day, nutrition, homeRehab, rehabDoctor, followUp, abnormal, nutrition + homeRehab + rehabDoctor + followUp + abnormal, List.of(
                     new ReminderItem("NUTRITION", "营养会诊", "营养科岗位人员", nutrition, "预约日期为提醒当日", "患者（姓名脱敏），住院号：****，今日需要营养会诊。"),
                     new ReminderItem("HOME", "居家康复", "居家康复科岗位人员", homeRehab, "预约日期为提醒当日", "患者（姓名脱敏），住院号：****，今日需要居家康复会诊。"),
+                    new ReminderItem("REHAB_DOCTOR_APPOINTMENT", "康复预约复诊", "康复医师角色用户", rehabDoctor, "预约日期为提醒当日；当日08:00后新增则立即提醒", "患者（姓名脱敏），住院号：****，今日康复预约复诊时间：YYYY年MM月DD日 HH:MM。"),
                     new ReminderItem("FOLLOW_UP", "出院随访", "随访员岗位人员", followUp, "实际出院满7/30/60天", "患者（姓名脱敏），住院号：****，今日需要随访。"),
                     new ReminderItem("ABNORMAL_REPORT", "填报异常", "主管医生科室权限内患者", abnormal, "早上8点前已命中填报异常", "患者（姓名脱敏），住院号：****，填报异常，请及时处理。")
             ));

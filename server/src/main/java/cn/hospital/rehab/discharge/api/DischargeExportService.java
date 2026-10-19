@@ -23,7 +23,7 @@ public class DischargeExportService {
     private static final List<String> HEADERS = List.of(
             "患者姓名", "患者性别", "住院号", "住院次数", "所属科室", "入院时间", "主诊断", "次要诊断", "主管医生",
             "预约复诊时间", "复诊是否到诊", "复诊到诊时间", "复诊填报人", "未到诊原因", "预计出院时间", "实际出院时间",
-            "预约营养会诊时间", "预约居家康复时间", "最近随访时间", "状态", "异常编码", "异常原因",
+            "预约康复时间", "预约营养会诊时间", "预约居家康复时间", "最近随访时间", "状态", "异常编码", "异常原因",
             "特殊患者", "特殊患者原因", "需要随访", "7天随访", "30天随访", "60天随访", "随访详情"
     );
 
@@ -43,7 +43,7 @@ public class DischargeExportService {
                 text(r.departmentName()), time(r.admittedAt()), text(r.primaryDiagnosis()), text(r.secondaryDiagnosis()), text(r.doctorName()),
                 time(r.latestOutpatientAppointmentAt()), yesNo(r.outpatientArrived()), time(r.outpatientArrivalAt()),
                 text(r.outpatientReporter()), text(r.outpatientNoShowReason()), time(r.plannedDischargeAt()), time(r.actualDischargeAt()),
-                time(r.latestNutritionAppointmentAt()), time(r.latestHomeRehabAppointmentAt()), time(r.latestFollowUpAt()),
+                time(r.latestRehabDoctorAppointmentAt()), time(r.latestNutritionAppointmentAt()), time(r.latestHomeRehabAppointmentAt()), time(r.latestFollowUpAt()),
                 text(r.status()), r.abnormalCodes() == null || r.abnormalCodes().isEmpty() ? "—" : String.join("、", r.abnormalCodes()),
                 text(r.abnormalReason()), yesNo(r.specialPatient()), text(r.specialReason()), yesNo(r.followUpRequired()),
                 followUp(r.followUpDay7()), followUp(r.followUpDay30()), followUp(r.followUpDay60()), text(r.followUpDetailsJson()));

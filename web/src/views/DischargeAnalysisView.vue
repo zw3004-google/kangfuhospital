@@ -38,7 +38,7 @@ interface Metrics {
   trend: CumulativeTrendPoint[]
 }
 
-type DetailCategory = 'BOARD' | 'FOLLOW_UP' | 'NUTRITION' | 'HOME_REHAB' | 'OUTPATIENT' | 'ABNORMAL' | 'SPECIAL_PATIENT'
+type DetailCategory = 'BOARD' | 'FOLLOW_UP' | 'REHAB_DOCTOR' | 'NUTRITION' | 'HOME_REHAB' | 'OUTPATIENT' | 'ABNORMAL' | 'SPECIAL_PATIENT'
 interface DetailRow {
   id: number
   inpatientNo: string
@@ -56,6 +56,7 @@ interface DetailRow {
   outpatientArrived: boolean | null
   outpatientArrivalAt: string | null
   outpatientNoShowReason: string | null
+  latestRehabDoctorAppointmentAt: string | null
   latestNutritionAppointmentAt: string | null
   latestHomeRehabAppointmentAt: string | null
   latestFollowUpAt: string | null
@@ -92,7 +93,7 @@ const reminderDialog = ref(false)
 const reminderLoading = ref(false)
 const reminderSending = ref(false)
 type ReminderPreviewItem = { type: string; label: string; patientCount: number; recipientScope: string; triggerBasis: string; messagePreview: string }
-const reminderPreview = ref<{ reminderDate: string; nutritionCount: number; homeRehabCount: number; followUpCount: number; unplannedCount: number; totalPatients: number; items: ReminderPreviewItem[] }>()
+const reminderPreview = ref<{ reminderDate: string; nutritionCount: number; homeRehabCount: number; rehabDoctorCount: number; followUpCount: number; unplannedCount: number; totalPatients: number; items: ReminderPreviewItem[] }>()
 let chart: ECharts | undefined
 let metricsRequestSequence = 0
 let detailRequestSequence = 0
@@ -100,6 +101,7 @@ let detailRequestSequence = 0
 const timeTypeOptions: Record<DetailCategory, Array<[string, string]>> = {
   BOARD: [['ADMITTED', '入院时间'], ['PLANNED_DISCHARGE', '预计出院时间']],
   FOLLOW_UP: [['ACTUAL_DISCHARGE', '实际出院时间'], ['FOLLOW_UP_DAY7', '第7天随访时间'], ['FOLLOW_UP_DAY30', '第30天随访时间'], ['FOLLOW_UP_DAY60', '第60天随访时间']],
+  REHAB_DOCTOR: [['REHAB_DOCTOR', '康复预约时间']],
   NUTRITION: [['NUTRITION', '营养会诊预约时间']],
   HOME_REHAB: [['HOME_REHAB', '居家康复预约时间']],
   OUTPATIENT: [['OUTPATIENT', '复诊预约时间']],
@@ -281,6 +283,7 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
       <el-tabs v-model="activeCategory" class="analysis-tabs" @tab-change="changeCategory">
         <el-tab-pane label="预出院看板" name="BOARD" />
         <el-tab-pane label="院后管理列表" name="FOLLOW_UP" />
+        <el-tab-pane label="康复预约" name="REHAB_DOCTOR" />
         <el-tab-pane label="营养会诊" name="NUTRITION" />
         <el-tab-pane label="居家康复" name="HOME_REHAB" />
         <el-tab-pane label="复诊预约" name="OUTPATIENT" />
@@ -304,7 +307,7 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
       <div v-else v-loading="detailLoading" class="mobile-only mobile-record-list analysis-mobile-list">
         <article v-for="row in detailRows" :key="row.id" class="mobile-record-card">
           <header><div><strong>{{ row.patientName }}</strong><span>{{ row.inpatientNo }} · 第{{ row.admissionTimes }}次住院</span></div><el-tag effect="light">{{ activeCategory }}</el-tag></header>
-          <dl><div><dt>所属科室</dt><dd>{{ row.departmentName || '—' }}</dd></div><div><dt>主管医生</dt><dd>{{ row.doctorName || '—' }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>预计出院</dt><dd>{{ formatTime(row.plannedDischargeAt) }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>实际出院</dt><dd>{{ formatTime(row.actualDischargeAt) }}</dd></div><template v-if="activeCategory === 'SPECIAL_PATIENT'"><div><dt>入院时间</dt><dd>{{ formatTime(row.admittedAt) }}</dd></div><div><dt>次要诊断</dt><dd>{{ row.secondaryDiagnosis || '—' }}</dd></div><div><dt>是否特殊患者</dt><dd>是</dd></div><div><dt>特殊原因</dt><dd>{{ row.specialReason || '—' }}</dd></div></template><div v-if="activeCategory === 'NUTRITION'"><dt>营养会诊</dt><dd>{{ formatTime(row.latestNutritionAppointmentAt) }}</dd></div><div v-if="activeCategory === 'HOME_REHAB'"><dt>居家康复</dt><dd>{{ formatTime(row.latestHomeRehabAppointmentAt) }}</dd></div><div v-if="activeCategory === 'OUTPATIENT'"><dt>复诊预约</dt><dd>{{ formatTime(row.latestOutpatientAppointmentAt) }}</dd></div></dl>
+          <dl><div><dt>所属科室</dt><dd>{{ row.departmentName || '—' }}</dd></div><div><dt>主管医生</dt><dd>{{ row.doctorName || '—' }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>预计出院</dt><dd>{{ formatTime(row.plannedDischargeAt) }}</dd></div><div v-if="activeCategory !== 'SPECIAL_PATIENT'"><dt>实际出院</dt><dd>{{ formatTime(row.actualDischargeAt) }}</dd></div><template v-if="activeCategory === 'SPECIAL_PATIENT'"><div><dt>入院时间</dt><dd>{{ formatTime(row.admittedAt) }}</dd></div><div><dt>次要诊断</dt><dd>{{ row.secondaryDiagnosis || '—' }}</dd></div><div><dt>是否特殊患者</dt><dd>是</dd></div><div><dt>特殊原因</dt><dd>{{ row.specialReason || '—' }}</dd></div></template><div v-if="activeCategory === 'REHAB_DOCTOR'"><dt>康复预约</dt><dd>{{ formatTime(row.latestRehabDoctorAppointmentAt) }}</dd></div><div v-if="activeCategory === 'NUTRITION'"><dt>营养会诊</dt><dd>{{ formatTime(row.latestNutritionAppointmentAt) }}</dd></div><div v-if="activeCategory === 'HOME_REHAB'"><dt>居家康复</dt><dd>{{ formatTime(row.latestHomeRehabAppointmentAt) }}</dd></div><div v-if="activeCategory === 'OUTPATIENT'"><dt>复诊预约</dt><dd>{{ formatTime(row.latestOutpatientAppointmentAt) }}</dd></div></dl>
           <template v-if="activeCategory === 'ABNORMAL'"><p class="mobile-record-alert"><strong>异常原因分类：</strong>{{ abnormalText(row) }}</p><p class="mobile-record-alert mobile-record-reason-report"><strong>异常原因填报：</strong>{{ row.abnormalReason || '—' }}</p></template>
         </article>
       </div>
@@ -335,6 +338,9 @@ onBeforeUnmount(() => { metricsRequestSequence++; detailRequestSequence++; windo
         </template>
         <template v-else-if="activeCategory === 'NUTRITION'">
           <el-table-column label="最近营养会诊预约" min-width="190"><template #default="scope">{{ formatTime(scope.row.latestNutritionAppointmentAt) }}</template></el-table-column>
+        </template>
+        <template v-else-if="activeCategory === 'REHAB_DOCTOR'">
+          <el-table-column label="最近康复预约" min-width="190"><template #default="scope">{{ formatTime(scope.row.latestRehabDoctorAppointmentAt) }}</template></el-table-column>
         </template>
         <template v-else-if="activeCategory === 'HOME_REHAB'">
           <el-table-column label="最近居家康复预约" min-width="190"><template #default="scope">{{ formatTime(scope.row.latestHomeRehabAppointmentAt) }}</template></el-table-column>

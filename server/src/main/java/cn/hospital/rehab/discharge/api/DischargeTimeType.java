@@ -6,6 +6,7 @@ public enum DischargeTimeType {
     ACTUAL_DISCHARGE,
     OUTPATIENT,
     NUTRITION,
+    REHAB_DOCTOR,
     HOME_REHAB,
     FOLLOW_UP,
     FOLLOW_UP_DAY7,

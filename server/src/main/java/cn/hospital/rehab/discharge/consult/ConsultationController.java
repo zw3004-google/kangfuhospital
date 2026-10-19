@@ -41,14 +41,14 @@ public class ConsultationController {
     public ApiResponse<ConsultationRecord> create(Authentication auth,HttpServletRequest http, @RequestParam long encounterId,
                                                    @RequestParam String type, @Valid @RequestBody ConsultationRequest request) {
         requireField(auth,type);
-        var result=repository.create(encounterId,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scopes.resolve(auth));reminders.createLateConsultationReminder(type,result.id(),result.appointmentAt());audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(result.id()),"CREATE",null,result,http.getRemoteAddr());return ApiResponse.ok(result);
+        var result=repository.create(encounterId,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scopes.resolve(auth));if (supportsReminder(type)) reminders.createLateConsultationReminder(type,result.id(),result.appointmentAt());audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(result.id()),"CREATE",null,result,http.getRemoteAddr());return ApiResponse.ok(result);
     }
 
     @PutMapping("/{id}")
     public ApiResponse<ConsultationRecord> update(Authentication auth,HttpServletRequest http, @PathVariable long id,
                                                    @RequestParam String type, @Valid @RequestBody ConsultationRequest request) {
         requireField(auth,type);
-        DataScope scope=scopes.resolve(auth);var before=repository.find(id,type,scope);var after=repository.update(id,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scope);reminders.createLateConsultationReminder(type,after.id(),after.appointmentAt());audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(id),"UPDATE",before,after,http.getRemoteAddr());return ApiResponse.ok(after);
+        DataScope scope=scopes.resolve(auth);var before=repository.find(id,type,scope);var after=repository.update(id,type,parse(request.appointmentAt()),request.executorName(),request.executionResult(),scope);if (supportsReminder(type)) reminders.createLateConsultationReminder(type,after.id(),after.appointmentAt());audit.record(auth,"DISCHARGE","CONSULTATION",String.valueOf(id),"UPDATE",before,after,http.getRemoteAddr());return ApiResponse.ok(after);
     }
 
     @DeleteMapping("/{id}")
@@ -67,6 +67,12 @@ public class ConsultationController {
     }
 
     private void requireField(Authentication auth,String type) {
-        fields.require(auth,"NUTRITION".equalsIgnoreCase(type)?"FIELD_NUTRITION":"FIELD_HOME_REHAB");
+        String permission="NUTRITION".equalsIgnoreCase(type)?"FIELD_NUTRITION":
+                "REHAB_DOCTOR".equalsIgnoreCase(type)?"FIELD_REHAB_DOCTOR":"FIELD_HOME_REHAB";
+        fields.require(auth,permission);
+    }
+
+    private static boolean supportsReminder(String type) {
+        return "NUTRITION".equalsIgnoreCase(type) || "HOME".equalsIgnoreCase(type);
     }
 }

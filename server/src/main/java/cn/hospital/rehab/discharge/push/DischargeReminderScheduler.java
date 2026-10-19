@@ -31,6 +31,7 @@ public class DischargeReminderScheduler {
         createConsultation("NUTRITION", today);
         createConsultation("HOME", today);
         createFollowUp(today);
+        createRehabDoctorAppointment(today);
         createPreviousDayOutpatientAppointmentReminders(today);
         createAbnormalReport(today);
         createPresidentOperationReport(today);
@@ -158,6 +159,54 @@ public class DischargeReminderScheduler {
         } catch (Exception ignored) {
             // Malformed legacy JSON must not block a successful patient-record save.
         }
+    }
+
+    /** Uses the same 08:00 daily plus same-day late-entry rule as follow-up reminders. */
+    private void createRehabDoctorAppointment(LocalDate day) {
+        String sql = """
+                INSERT INTO push_task(business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,content,status,scheduled_at)
+                SELECT 'DISCHARGE','REHAB_DOCTOR_APPOINTMENT',:day,u.wecom_user_id,u.display_name,m.content,'PENDING',CURRENT_TIMESTAMP
+                  FROM sys_user u
+                  JOIN sys_user_role ur ON ur.user_id=u.id
+                  JOIN sys_role r ON r.id=ur.role_id
+                 CROSS JOIN LATERAL (
+                    SELECT STRING_AGG(%s||'患者，住院号：'||e.inpatient_no||'，今日康复预约复诊时间：'||
+                        TO_CHAR(d.rehab_doctor_appointment_at AT TIME ZONE 'Asia/Shanghai','YYYY年MM月DD日 HH24:MI')||'。',
+                        E'\n' ORDER BY e.inpatient_no,d.rehab_doctor_appointment_at) AS content
+                      FROM discharge_record d
+                      JOIN patient_encounter e ON e.id=d.encounter_id
+                     WHERE d.rehab_doctor_appointment_at::date=:day
+                 ) m
+                 WHERE u.enabled=true AND r.enabled=true AND r.role_code='REHAB_DOCTOR'
+                   AND BTRIM(COALESCE(u.wecom_user_id,''))<>'' AND m.content IS NOT NULL
+                ON CONFLICT DO NOTHING
+                """.formatted(MASKED_NAME);
+        jdbc.sql(sql).param("day", day).update();
+    }
+
+    public void recordRehabDoctorAppointmentChange(long dischargeRecordId,
+                                                    OffsetDateTime beforeAppointmentAt,
+                                                    OffsetDateTime appointmentAt) {
+        if (appointmentAt == null || java.util.Objects.equals(beforeAppointmentAt, appointmentAt)
+                || !isAfterDailyCutoff(appointmentAt)) return;
+        String sql = """
+                INSERT INTO push_task(business_type,reminder_type,reminder_date,recipient_wecom_id,recipient_name,content,status,scheduled_at)
+                SELECT 'DISCHARGE',:reminderType,:day,u.wecom_user_id,u.display_name,
+                       %s||'患者，住院号：'||e.inpatient_no||'，今日康复预约复诊时间：'||
+                       TO_CHAR(d.rehab_doctor_appointment_at AT TIME ZONE 'Asia/Shanghai','YYYY年MM月DD日 HH24:MI')||'。','PENDING',CURRENT_TIMESTAMP
+                  FROM discharge_record d
+                  JOIN patient_encounter e ON e.id=d.encounter_id
+                  JOIN sys_user u ON u.enabled=true
+                  JOIN sys_user_role ur ON ur.user_id=u.id
+                  JOIN sys_role r ON r.id=ur.role_id
+                 WHERE d.id=:recordId AND d.rehab_doctor_appointment_at=:appointmentAt
+                   AND r.enabled=true AND r.role_code='REHAB_DOCTOR'
+                   AND BTRIM(COALESCE(u.wecom_user_id,''))<>''
+                ON CONFLICT DO NOTHING
+                """.formatted(MASKED_NAME);
+        jdbc.sql(sql).param("reminderType", "REHAB_DOCTOR_APPOINTMENT_LATE_" + dischargeRecordId)
+                .param("day", LocalDate.now(SHANGHAI)).param("recordId", dischargeRecordId)
+                .param("appointmentAt", appointmentAt).update();
     }
 
     /** Records a changed appointment and immediately notifies only a same-day appointment saved after 08:00. */

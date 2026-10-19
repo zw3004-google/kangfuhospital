@@ -35,10 +35,16 @@ const editingUserId = ref<number | null>(null)
 const editingDepartmentId = ref<number | null>(null)
 const saving = ref(false)
 const userForm = reactive({ displayName: '', employeeNo: '', wecomUserId: '', departmentId: undefined as number | undefined })
+const userDepartmentKeyword = ref('')
 const departmentForm = reactive({ departmentCode: '', departmentName: '' })
 const roleForm = reactive({ userId: 0, displayName: '', roleIds: [] as number[] })
 const departmentAccessForm = reactive({ userId: 0, displayName: '', departmentIds: [] as number[], keyword: '' })
 const filteredAccessDepartments = () => departments.value.filter(item => item.enabled && item.departmentName.toLowerCase().includes(departmentAccessForm.keyword.trim().toLowerCase()))
+const filteredUserDepartments = () => {
+  const keyword = userDepartmentKeyword.value.trim().toLowerCase()
+  return departments.value.filter(item => item.enabled && (!keyword || `${item.departmentName} ${item.departmentCode}`.toLowerCase().includes(keyword)))
+}
+const filterUserDepartmentOptions = (keyword: string) => { userDepartmentKeyword.value = keyword }
 
 async function loadReferences() {
   const [departmentResponse, roleResponse] = await Promise.all([
@@ -105,12 +111,14 @@ function exportUsers() {
 
 function openUser() {
   Object.assign(userForm, { displayName: '', employeeNo: '', wecomUserId: '', departmentId: undefined })
+  userDepartmentKeyword.value = ''
   userDialog.value = true
 }
 
 function editUser(user: User) {
   editingUserId.value = user.id
   Object.assign(userForm, { displayName: user.displayName, employeeNo: user.employeeNo, wecomUserId: user.wecomUserId, departmentId: user.departmentId })
+  userDepartmentKeyword.value = ''
   userDialog.value = true
 }
 async function saveUser() {
@@ -319,7 +327,7 @@ onMounted(initialize)
     </el-tabs>
   </section>
 
-  <el-dialog v-model="userDialog"  :title="editingUserId ? '编辑用户' : '新增用户'" width="500px" class="mobile-full-dialog"><el-alert title="登录名使用企微ID；工号用于主管医生唯一匹配；角色创建后单独分配。" type="info" :closable="false" /><el-form label-position="top" class="dialog-form"><el-form-item label="姓名" required><el-input v-model="userForm.displayName" maxlength="128" /></el-form-item><el-form-item label="工号" required><el-input v-model="userForm.employeeNo" maxlength="64" /></el-form-item><el-form-item label="企微ID" :required="!editingUserId"><el-input v-model="userForm.wecomUserId" maxlength="128" :disabled="!!editingUserId" /></el-form-item><el-form-item label="所属科室" required><el-select v-model="userForm.departmentId" style="width:100%"><el-option v-for="item in departments.filter(i=>i.enabled)" :key="item.id" :label="item.departmentName" :value="item.id" /></el-select></el-form-item></el-form><template #footer><el-button @click="userDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveUser">保存</el-button></template></el-dialog>
+  <el-dialog v-model="userDialog"  :title="editingUserId ? '编辑用户' : '新增用户'" width="500px" class="mobile-full-dialog"><el-alert title="登录名使用企微ID；工号用于主管医生唯一匹配；角色创建后单独分配。" type="info" :closable="false" /><el-form label-position="top" class="dialog-form"><el-form-item label="姓名" required><el-input v-model="userForm.displayName" maxlength="128" /></el-form-item><el-form-item label="工号" required><el-input v-model="userForm.employeeNo" maxlength="64" /></el-form-item><el-form-item label="企微ID" :required="!editingUserId"><el-input v-model="userForm.wecomUserId" maxlength="128" :disabled="!!editingUserId" /></el-form-item><el-form-item label="所属科室" required><el-select v-model="userForm.departmentId" filterable :filter-method="filterUserDepartmentOptions" placeholder="输入科室名称或编码搜索" style="width:100%"><el-option v-for="item in filteredUserDepartments()" :key="item.id" :label="item.departmentName" :value="item.id" /></el-select></el-form-item></el-form><template #footer><el-button @click="userDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveUser">保存</el-button></template></el-dialog>
   <el-dialog v-model="departmentDialog"  :title="editingDepartmentId ? '编辑科室' : '新增科室'" width="500px" class="mobile-full-dialog"><el-form label-position="top"><el-form-item label="科室编码" required><el-input v-model="departmentForm.departmentCode" placeholder="例如：KF01" :disabled="!!editingDepartmentId" /></el-form-item><el-form-item label="科室名称" required><el-input v-model="departmentForm.departmentName" /></el-form-item></el-form><template #footer><el-button @click="departmentDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveDepartment">保存</el-button></template></el-dialog>
   <el-dialog v-model="roleDialog" :title="`分配角色：${roleForm.displayName}`" width="560px" class="mobile-full-dialog"><el-checkbox-group v-model="roleForm.roleIds" class="role-grid"><el-checkbox v-for="role in roles" :key="role.id" :value="role.id" border>{{ role.roleName }}</el-checkbox></el-checkbox-group><template #footer><el-button @click="roleDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveRoles">保存</el-button></template></el-dialog>
   <el-dialog v-model="departmentAccessDialog" :title="`分配科室：${departmentAccessForm.displayName}`" width="620px" class="mobile-full-dialog"><div class="permission-group-toolbar"><el-input v-model="departmentAccessForm.keyword" clearable placeholder="筛选可访问科室"/><el-button @click="toggleDepartmentAccess">全选/取消全选</el-button></div><el-checkbox-group v-model="departmentAccessForm.departmentIds" class="permission-check-grid department-check-grid"><el-checkbox v-for="department in filteredAccessDepartments()" :key="department.id" :value="department.id">{{ department.departmentName }}</el-checkbox></el-checkbox-group><template #footer><el-button @click="departmentAccessDialog=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveDepartmentAccess">保存</el-button></template></el-dialog></template>

@@ -77,6 +77,7 @@ public class ConsultationRepository {
     private static String table(String type) {
         if ("NUTRITION".equalsIgnoreCase(type)) return "discharge_nutrition_consultation";
         if ("HOME".equalsIgnoreCase(type)) return "discharge_home_rehab_consultation";
+        if ("REHAB_DOCTOR".equalsIgnoreCase(type)) return "discharge_rehab_doctor_consultation";
         throw new IllegalArgumentException("会诊类型不正确");
     }
 }

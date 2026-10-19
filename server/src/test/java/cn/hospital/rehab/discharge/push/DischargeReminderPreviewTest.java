@@ -23,17 +23,17 @@ class DischargeReminderPreviewTest {
     }
     @Test
     void describesEveryFormalReminderTypeAndRecipientScope() {
-        var preview = DischargeReminderController.Preview.of(LocalDate.of(2026, 9, 3), 2, 3, 4, 1);
+        var preview = DischargeReminderController.Preview.of(LocalDate.of(2026, 9, 3), 2, 3, 4, 5, 1);
 
-        assertThat(preview.totalPatients()).isEqualTo(10);
+        assertThat(preview.totalPatients()).isEqualTo(15);
         assertThat(preview.items()).extracting(DischargeReminderController.ReminderItem::type)
-                .containsExactly("NUTRITION", "HOME", "FOLLOW_UP", "ABNORMAL_REPORT");
+                .containsExactly("NUTRITION", "HOME", "REHAB_DOCTOR_APPOINTMENT", "FOLLOW_UP", "ABNORMAL_REPORT");
         assertThat(preview.items()).allSatisfy(item -> {
             assertThat(item.recipientScope()).isNotBlank();
             assertThat(item.triggerBasis()).isNotBlank();
             assertThat(item.messagePreview()).contains("姓名脱敏").contains("住院号");
         });
-        assertThat(preview.items().get(3).triggerBasis()).contains("填报异常");
+        assertThat(preview.items().get(4).triggerBasis()).contains("填报异常");
     }
 
     @Test

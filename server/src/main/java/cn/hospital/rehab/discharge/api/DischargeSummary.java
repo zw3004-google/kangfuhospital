@@ -20,10 +20,12 @@ public record DischargeSummary(
         OffsetDateTime plannedDischargeAt,
         OffsetDateTime actualDischargeAt,
         OffsetDateTime latestOutpatientAppointmentAt,
+        OffsetDateTime rehabDoctorAppointmentAt,
         Boolean outpatientArrived,
         OffsetDateTime outpatientArrivalAt,
         String outpatientReporter,
         String outpatientNoShowReason,
+        OffsetDateTime latestRehabDoctorAppointmentAt,
         OffsetDateTime latestNutritionAppointmentAt,
         OffsetDateTime latestHomeRehabAppointmentAt,
         OffsetDateTime latestFollowUpAt,
@@ -48,8 +50,8 @@ public record DischargeSummary(
             String status,List<String> abnormalCodes,String abnormalReason,Boolean specialPatient,String specialReason,
             Boolean followUpRequired,String followUpDay7,String followUpDay30,String followUpDay60,String followUpDetailsJson) {
         this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,null,departmentName,primaryDiagnosis,null,doctorName,doctorEmployeeNo,admittedAt,
-                plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
-                outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
+                plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,null,outpatientArrived,outpatientArrivalAt,
+                outpatientReporter,outpatientNoShowReason,null,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
                 latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,null,specialReason,followUpRequired,
                 followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null,null);
     }
@@ -62,8 +64,8 @@ public record DischargeSummary(
             String status,List<String> abnormalCodes,String abnormalReason,Boolean specialPatient,String specialReason,
             Boolean followUpRequired,String followUpDay7,String followUpDay30,String followUpDay60,String followUpDetailsJson) {
         this(id,encounterId,inpatientNo,admissionTimes,patientName,gender,null,departmentName,primaryDiagnosis,null,doctorName,null,admittedAt,
-                plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,outpatientArrived,outpatientArrivalAt,
-                outpatientReporter,outpatientNoShowReason,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
+                plannedDischargeAt,actualDischargeAt,latestOutpatientAppointmentAt,null,outpatientArrived,outpatientArrivalAt,
+                outpatientReporter,outpatientNoShowReason,null,latestNutritionAppointmentAt,latestHomeRehabAppointmentAt,
                 latestFollowUpAt,status,abnormalCodes,abnormalReason,specialPatient,null,specialReason,followUpRequired,
                 followUpDay7,followUpDay30,followUpDay60,followUpDetailsJson,null,null);
     }

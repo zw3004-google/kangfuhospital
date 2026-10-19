@@ -88,7 +88,7 @@ describe('DischargeManagementView',()=>{
     expect(wrapper.text()).toContain('操作历史')
     expect(wrapper.text()).toContain('doctor01')
     expect(wrapper.text()).toContain('预计出院时间：2026-09-04 → 2026-09-05')
-    for(const section of ['主管医生填报','门诊部填报','营养科填报','居家康复科填报','随访员填报'])expect(wrapper.text()).toContain(section)
+    for(const section of ['主管医生填报','康复医生填报','门诊部填报','营养科填报','居家康复科填报','随访员填报'])expect(wrapper.text()).toContain(section)
     expect(wrapper.text()).toContain('新增营养会诊')
     expect(wrapper.text()).toContain('新增居家康复')
     expect(wrapper.text()).toContain('是否到诊')
@@ -98,6 +98,7 @@ describe('DischargeManagementView',()=>{
     expect(wrapper.text()).toContain('预约营养评估')
     expect(wrapper.find('a[href^="/discharge/"]').exists()).toBe(false)
     expect(getMock).toHaveBeenCalledWith('/discharge/consultations',{params:{encounterId:101,type:'NUTRITION'}})
+    expect(getMock).toHaveBeenCalledWith('/discharge/consultations',{params:{encounterId:101,type:'REHAB_DOCTOR'}})
     expect(getMock).toHaveBeenCalledWith('/discharge/consultations',{params:{encounterId:101,type:'HOME'}})
   },30000)
 
