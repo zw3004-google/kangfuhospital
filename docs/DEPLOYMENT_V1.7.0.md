@@ -19,6 +19,8 @@
 
 在标签 `V1.7.0` 对应的干净工作区执行：
 
+> **版本展示强制校验（适用于后续每个升级包）**：先将 `server/pom.xml`、`web/package.json` 和本手册中的版本号同步更新为本次发布版本；前端必须通过 `pnpm build` 或 `npm run build` 构建，以注入 `package.json` 中的版本号。一键打包脚本还会校验前后端版本与前端产物内嵌版本；任一不一致即终止，禁止生成升级包。
+
 ```powershell
 Push-Location web
 pnpm install --frozen-lockfile
@@ -28,6 +30,8 @@ D:\projects\kangfuhospital\.tools\maven\apache-maven-3.9.16\bin\mvn.cmd -f serve
 powershell -ExecutionPolicy Bypass -File scripts\build-test-package.ps1 -Version V1.7.0
 Get-FileHash outputs\kangfu-V1.7.0.tar.gz -Algorithm SHA256
 ```
+
+构建成功后，在浏览器或使用接口确认后端 `/api/system/info` 返回 `1.7.0`，并确认前端右上角展示 `V1.7.0`；两者任一不匹配时，不得部署。
 
 ## 服务器一键升级
 

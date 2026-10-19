@@ -5,6 +5,21 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $artifactVersion = ($Version -replace '^V', '' -replace '-test-.*$', '')
+$webPackage = Get-Content -LiteralPath (Join-Path $root 'web\package.json') -Raw | ConvertFrom-Json
+[xml]$serverPom = Get-Content -LiteralPath (Join-Path $root 'server\pom.xml')
+if ($webPackage.version -ne $artifactVersion) {
+  throw "Frontend package.json version $($webPackage.version) does not match package version $artifactVersion. Update the version and rebuild the frontend."
+}
+if ($serverPom.project.version -ne $artifactVersion) {
+  throw "Backend pom.xml version $($serverPom.project.version) does not match package version $artifactVersion. Update the version and rebuild the backend."
+}
+$webDist = Join-Path $root 'web\dist'
+if (!(Test-Path -LiteralPath (Join-Path $webDist 'index.html'))) {
+  throw 'Frontend build output is missing. Run pnpm build or npm run build first.'
+}
+if (!(Get-ChildItem -LiteralPath $webDist -Recurse -File | Select-String -SimpleMatch -Quiet $artifactVersion)) {
+  throw "Frontend output does not embed version $artifactVersion. Rebuild with pnpm build or npm run build; do not run vite build directly."
+}
 $staging = Join-Path $root "outputs\kangfu-$Version"
 $archive = Join-Path $root "outputs\kangfu-$Version.tar.gz"
 if (Test-Path $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
