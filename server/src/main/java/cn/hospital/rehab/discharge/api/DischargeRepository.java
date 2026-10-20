@@ -113,9 +113,9 @@ public class DischargeRepository {
                 outpatient_reporter=COALESCE(:outpatientReporter,d.outpatient_reporter),
                 outpatient_no_show_reason=COALESCE(:outpatientNoShowReason,d.outpatient_no_show_reason),
                 follow_up_details=COALESCE(CAST(:followUpDetails AS JSONB),d.follow_up_details),
-                follow_up_day7_at=CASE WHEN :followUpDetails IS NULL THEN d.follow_up_day7_at ELSE NULLIF(jsonb_path_query_first(CAST(:followUpDetails AS JSONB),'$[*] ? (@.day == 7).followUpAt') #>> '{}','')::TIMESTAMPTZ END,
-                follow_up_day30_at=CASE WHEN :followUpDetails IS NULL THEN d.follow_up_day30_at ELSE NULLIF(jsonb_path_query_first(CAST(:followUpDetails AS JSONB),'$[*] ? (@.day == 30).followUpAt') #>> '{}','')::TIMESTAMPTZ END,
-                follow_up_day60_at=CASE WHEN :followUpDetails IS NULL THEN d.follow_up_day60_at ELSE NULLIF(jsonb_path_query_first(CAST(:followUpDetails AS JSONB),'$[*] ? (@.day == 60).followUpAt') #>> '{}','')::TIMESTAMPTZ END,
+                follow_up_day7_at=CASE WHEN CAST(:followUpDetails AS JSONB) IS NULL THEN d.follow_up_day7_at ELSE NULLIF(jsonb_path_query_first(CAST(:followUpDetails AS JSONB),'$[*] ? (@.day == 7).followUpAt') #>> '{}','')::TIMESTAMPTZ END,
+                follow_up_day30_at=CASE WHEN CAST(:followUpDetails AS JSONB) IS NULL THEN d.follow_up_day30_at ELSE NULLIF(jsonb_path_query_first(CAST(:followUpDetails AS JSONB),'$[*] ? (@.day == 30).followUpAt') #>> '{}','')::TIMESTAMPTZ END,
+                follow_up_day60_at=CASE WHEN CAST(:followUpDetails AS JSONB) IS NULL THEN d.follow_up_day60_at ELSE NULLIF(jsonb_path_query_first(CAST(:followUpDetails AS JSONB),'$[*] ? (@.day == 60).followUpAt') #>> '{}','')::TIMESTAMPTZ END,
                 updated_at=CURRENT_TIMESTAMP FROM patient_encounter e
                 WHERE d.encounter_id=e.id AND d.id=:id
                   AND (CAST(:expectedUpdatedAt AS TIMESTAMPTZ) IS NULL OR d.updated_at=:expectedUpdatedAt)
