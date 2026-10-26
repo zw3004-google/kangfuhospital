@@ -16,15 +16,16 @@ const arrearsTypeOptions:[string,string][]=[['INPATIENT','在院欠费'],['DISCH
 const router=useRouter()
 const mobileFilters=ref(false)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
-const rows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref(''),feeType=ref(''),recoveryProgress=ref(''),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),syncing=ref(''),saving=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
-const queryParams=()=>({page:page.value,pageSize:pageSize.value,keyword:keyword.value||undefined,departmentId:departmentId.value,arrearsType:arrearsType.value||undefined,feeType:feeType.value||undefined,recoveryProgress:recoveryProgress.value||undefined})
+const defaultArrearsTypes=['INPATIENT','DISCHARGED_UNSETTLED']
+const rows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref<string[]>([...defaultArrearsTypes]),feeType=ref(''),recoveryProgress=ref(''),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),syncing=ref(''),saving=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
+const queryParams=()=>({page:page.value,pageSize:pageSize.value,keyword:keyword.value||undefined,departmentId:departmentId.value,arrearsType:arrearsType.value.length?arrearsType.value.join(','):undefined,feeType:feeType.value||undefined,recoveryProgress:recoveryProgress.value||undefined})
 const sortRowsByArrearsAmount=(items:Row[])=>[...items].sort((left,right)=>Math.abs(Number(right.arrearsAmount||0))-Math.abs(Number(left.arrearsAmount||0)))
 const summaryParams=()=>{const {page:_,pageSize:__,...params}=queryParams();return params}
 const load=async()=>{loading.value=true;try{const r=(await http.get<ApiResponse<Page<Row>>>('/arrears/records',{params:queryParams()})).data.data;rows.value=sortRowsByArrearsAmount(r.items);total.value=r.total}catch(e){ElMessage.error(e instanceof Error?e.message:'加载失败')}finally{loading.value=false}}
 const loadSummary=async()=>{summaryLoading.value=true;try{summary.value=(await http.get<ApiResponse<Summary>>('/arrears/records/summary',{params:summaryParams()})).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'统计加载失败')}finally{summaryLoading.value=false}}
 const loadAll=()=>Promise.all([load(),loadSummary()])
 const loadFilterOptions=async()=>{try{filterOptions.value=(await http.get<ApiResponse<FilterOptions>>('/arrears/records/filter-options')).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'筛选项加载失败')}}
-const reset=()=>{keyword.value='';departmentId.value=undefined;arrearsType.value='';feeType.value='';recoveryProgress.value='';page.value=1;loadAll()}
+const reset=()=>{keyword.value='';departmentId.value=undefined;arrearsType.value=[...defaultArrearsTypes];feeType.value='';recoveryProgress.value='';page.value=1;loadAll()}
 const upload=async(file:File)=>{if(!/\.xlsx$/i.test(file.name)){ElMessage.error('仅支持 .xlsx 文件');return false}const data=new FormData();data.append('file',file);uploading.value=true;importFeedback.value=null;try{const result=(await http.post<ApiResponse<ImportResult>>('/arrears/import',data)).data.data;importFeedback.value={...result,status:'success',message:'欠费报表导入完成',remainingErrors:0};ElMessage.success('导入成功');page.value=1;await loadAll()}catch(e){importFeedback.value=importFailureFeedback(e,'欠费报表导入失败');ElMessage.error(importFeedback.value.message)}finally{uploading.value=false}return false}
 const syncHis=async(type:'INPATIENT_ARREARS'|'DISCHARGED_ARREARS',label:string)=>{syncing.value=type;importFeedback.value=null;try{const result=(await http.post<ApiResponse<SyncResult>>(`/integration/his-sync/${type}/trigger`,undefined,{timeout:120_000})).data.data;importFeedback.value={...result,status:'success',message:`${label}同步完成`,remainingErrors:0};ElMessage.success(`${label}同步完成`);page.value=1;await loadFilterOptions();await loadAll()}catch(e){importFeedback.value=importFailureFeedback(e,`${label}同步失败`);ElMessage.error(importFeedback.value.message)}finally{syncing.value=''}}
 const openImportRecords=()=>router.push('/arrears/import-batches')
@@ -99,7 +100,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <el-button class="mobile-filter-button" @click="mobileFilters=true">筛选</el-button><el-button type="primary" @click="page=1;loadAll()">查询</el-button>
 </div>
 <div class="filter-bar desktop-only">
-<el-select v-model="arrearsType" clearable placeholder="全部欠费类型">
+<el-select v-model="arrearsType" multiple clearable placeholder="全部欠费类型">
 <el-option v-for="item in arrearsTypeOptions" :key="item[0]" :label="item[1]" :value="item[0]"/>
 </el-select>
 <el-select v-model="departmentId" clearable placeholder="全部科室">
@@ -117,7 +118,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </div>
 <el-drawer v-model="mobileFilters" title="筛选欠费患者" direction="btt" size="76%" class="mobile-filter-drawer">
 <div class="mobile-filter-form">
-<el-select v-model="arrearsType" clearable placeholder="全部欠费类型"><el-option v-for="item in arrearsTypeOptions" :key="item[0]" :label="item[1]" :value="item[0]"/></el-select>
+<el-select v-model="arrearsType" multiple clearable placeholder="全部欠费类型"><el-option v-for="item in arrearsTypeOptions" :key="item[0]" :label="item[1]" :value="item[0]"/></el-select>
 <el-select v-model="departmentId" clearable placeholder="全部科室"><el-option v-for="item in filterOptions.departments" :key="item.id" :label="item.name" :value="item.id"/></el-select>
 <el-select v-model="feeType" clearable placeholder="全部费别"><el-option v-for="item in filterOptions.feeTypes" :key="item" :label="item" :value="item"/></el-select>
 <el-select v-model="recoveryProgress" clearable placeholder="追缴进度（全部）"><el-option v-for="item in progressOptions" :key="item[0]" :label="item[1]" :value="item[0]"/></el-select>

@@ -508,9 +508,9 @@ class ApplicationPostgresIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.reminderDate").isNotEmpty())
                 .andExpect(jsonPath("$.data.totalPatients").isNumber())
-                .andExpect(jsonPath("$.data.items.length()").value(4))
-                .andExpect(jsonPath("$.data.items[3].recipientScope").value("主管医生科室权限内患者"))
-                .andExpect(jsonPath("$.data.items[3].triggerBasis").value(org.hamcrest.Matchers.containsString("填报异常")));
+                .andExpect(jsonPath("$.data.items.length()").value(5))
+                .andExpect(jsonPath("$.data.items[4].recipientScope").value("主管医生科室权限内患者"))
+                .andExpect(jsonPath("$.data.items[4].triggerBasis").value(org.hamcrest.Matchers.containsString("填报异常")));
         mvc.perform(post("/api/discharge/reminders/trigger").with(sessionAuth("test_operations", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.reminderDate").isNotEmpty())

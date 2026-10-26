@@ -18,6 +18,8 @@ describe('ArrearsDetailsView 主管医生工号', () => {
     const wrapper = mount(ArrearsDetailsView, { global: { plugins: [ElementPlus], directives: { permission: () => {} } } })
     await flushPromises()
 
+    expect(getMock).toHaveBeenCalledWith('/arrears/records', expect.objectContaining({ params: expect.objectContaining({ arrearsType: 'INPATIENT,DISCHARGED_UNSETTLED' }) }))
+    expect(getMock).toHaveBeenCalledWith('/arrears/records/summary', expect.objectContaining({ params: expect.objectContaining({ arrearsType: 'INPATIENT,DISCHARGED_UNSETTLED' }) }))
     expect(wrapper.find('input[placeholder="住院号 / 姓名 / 主管医生 / 医生工号"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('主管医生工号')
     expect(wrapper.text()).toContain('D001')
