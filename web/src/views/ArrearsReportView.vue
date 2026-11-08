@@ -90,7 +90,7 @@ onMounted(load)
 <template>
   <section class="page-card arrears-report-page">
     <div class="page-heading">
-      <div><h2>通报报表</h2><p>统计范围：是否欠费且未标记已缴费的在院及出院患者。</p></div>
+      <div><h2>通报报表</h2><p>统计范围：当前仍欠费且未缴费的在院及出院未结算患者。</p></div>
       <div class="heading-actions">
         <el-button v-permission="'PERM_API_ARREARS_EXPORT'" :loading="exporting" :disabled="!data?.latestSuccessfulBatch" @click="exportReport">导出通报</el-button>
         <el-button :disabled="!data?.latestSuccessfulBatch" @click="showNotice">通报内容展示</el-button>

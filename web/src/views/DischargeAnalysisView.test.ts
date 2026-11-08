@@ -197,7 +197,13 @@ describe('DischargeAnalysisView 阶段1', () => {
   })
 
   it('院后管理列表按第30天随访时间筛选', async () => {
-    getMock.mockImplementation((url: string) => Promise.resolve({ data: { data: url === '/discharge/analysis' ? metrics : url.endsWith('filter-options') ? [] : { items: [], total: 0 } } }))
+    getMock.mockImplementation((url: string, config?: { params?: { category?: string } }) => {
+      if (url === '/discharge/analysis') return Promise.resolve({ data: { data: metrics } })
+      if (url.endsWith('filter-options')) return Promise.resolve({ data: { data: [] } })
+      const item = { id: 5, patientName: '随访患者', inpatientNo: 'ZY-FOLLOW-001', admissionTimes: 1, followUpRequired: true, followUpDay7: '恢复良好', followUpDay30: '一般', followUpDay60: '恢复良好', followUpDetailsJson: JSON.stringify([{ day: 7, followUpAt: '2026-09-11T09:00:00+08:00' }, { day: 30, followUpAt: '2026-10-04T09:00:00+08:00' }, { day: 60, followUpAt: '2026-11-03T09:00:00+08:00' }]), abnormalCodes: [] }
+      const followUp = config?.params?.category === 'FOLLOW_UP'
+      return Promise.resolve({ data: { data: { items: followUp ? [item] : [], total: followUp ? 1 : 0 } } })
+    })
     const wrapper = mount(DischargeAnalysisView, { global: { plugins: [ElementPlus] } })
     await flushPromises()
     wrapper.findComponent({ name: 'ElTabs' }).vm.$emit('tab-change', 'FOLLOW_UP')

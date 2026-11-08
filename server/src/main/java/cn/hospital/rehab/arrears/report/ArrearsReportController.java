@@ -61,10 +61,6 @@ public class ArrearsReportController {
         DataScope scope = scopes.resolve(auth);
         ScopeInfo scopeInfo = scopeInfo(scope);
         SelectedBatch selectedBatch = latestReadyBatch();
-        if (selectedBatch == null) {
-            return ApiResponse.ok(new Report(BigDecimal.ZERO, 0, scopeInfo.type(), scopeInfo.label(),
-                    List.of(), List.of(), List.of(), null));
-        }
 
         Set<Long> departmentIds = scope.departmentIds().isEmpty() ? Set.of(-1L) : scope.departmentIds();
         var ranking = jdbc.sql("""
@@ -73,13 +69,14 @@ public class ArrearsReportController {
                   FROM arrears_record a
                   JOIN patient_encounter e ON e.id=a.encounter_id
              LEFT JOIN sys_department d ON d.id=e.department_id
-                 WHERE a.import_batch_id=:batchId AND a.in_arrears=true AND a.payment_status='UNPAID'
+                 WHERE a.arrears_type IN ('INPATIENT','在院患者','DISCHARGED_UNSETTLED','出院未结算')
+                   AND a.in_arrears=true AND a.payment_status='UNPAID'
                    AND (:allDepartments=TRUE OR e.department_id IN (:departmentIds) OR
-                        (CAST(:doctorUserId AS BIGINT) IS NOT NULL AND e.doctor_user_id=:doctorUserId))
+                        (:doctorOnly=TRUE AND e.doctor_user_id=:doctorUserId))
               GROUP BY COALESCE(d.department_name,e.ward_name,'未分配'),
                        COALESCE(d.department_code,e.ward_name,'')
               ORDER BY amount DESC,COALESCE(d.department_code,e.ward_name,'')
-                """).param("batchId", selectedBatch.id()).param("allDepartments", scope.allDepartments())
+                """).param("allDepartments", scope.allDepartments()).param("doctorOnly", scope.doctorUserId() != null)
                 .param("departmentIds", departmentIds)
                 .param("doctorUserId", scope.doctorUserId())
                 .query((r, row) -> new DepartmentStat(
@@ -99,14 +96,15 @@ public class ArrearsReportController {
                   JOIN patient_encounter e ON e.id=a.encounter_id
              LEFT JOIN sys_department d ON d.id=e.department_id
              LEFT JOIN sys_user u ON u.id=e.doctor_user_id
-                 WHERE a.import_batch_id=:batchId AND a.in_arrears=true AND a.payment_status='UNPAID'
+                 WHERE a.arrears_type IN ('INPATIENT','在院患者','DISCHARGED_UNSETTLED','出院未结算')
+                   AND a.in_arrears=true AND a.payment_status='UNPAID'
                    AND (:allDepartments=TRUE OR e.department_id IN (:departmentIds) OR
-                        (CAST(:doctorUserId AS BIGINT) IS NOT NULL AND e.doctor_user_id=:doctorUserId))
+                        (:doctorOnly=TRUE AND e.doctor_user_id=:doctorUserId))
               ORDER BY ABS(a.arrears_amount) DESC,
                        COALESCE(d.department_code,e.ward_name,''),
                        e.inpatient_no,e.admission_times
                  LIMIT 10
-                """).param("batchId", selectedBatch.id()).param("allDepartments", scope.allDepartments())
+                """).param("allDepartments", scope.allDepartments()).param("doctorOnly", scope.doctorUserId() != null)
                 .param("departmentIds", departmentIds)
                 .param("doctorUserId", scope.doctorUserId())
                 .query((r, row) -> new PatientStat(
@@ -117,7 +115,7 @@ public class ArrearsReportController {
 
         BigDecimal total = ranking.stream().map(DepartmentStat::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         long people = ranking.stream().mapToLong(DepartmentStat::people).sum();
-        BatchSnapshot batch = new BatchSnapshot(selectedBatch.batchNo(), selectedBatch.dataAsOf(), selectedBatch.summaryStatus());
+        BatchSnapshot batch = selectedBatch == null ? null : new BatchSnapshot(selectedBatch.batchNo(), selectedBatch.dataAsOf(), selectedBatch.summaryStatus());
         return ApiResponse.ok(new Report(total, people, scopeInfo.type(), scopeInfo.label(),
                 ranking.stream().limit(3).toList(), ranking, patientTop10, batch));
     }

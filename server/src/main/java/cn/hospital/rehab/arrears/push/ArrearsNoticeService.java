@@ -43,10 +43,10 @@ public class ArrearsNoticeService {
                   FROM arrears_record a
                   JOIN patient_encounter e ON e.id=a.encounter_id
              LEFT JOIN sys_department d ON d.id=e.department_id
-                 WHERE a.in_arrears=true AND a.payment_status='UNPAID'
-                   AND (:allDepartments=TRUE OR
-                        (:doctorOnly=TRUE AND e.department_id IN (:departmentIds) AND e.doctor_user_id=:doctorUserId) OR
-                        (:doctorOnly=FALSE AND e.department_id IN (:departmentIds)))
+                 WHERE a.arrears_type IN ('INPATIENT','在院患者','DISCHARGED_UNSETTLED','出院未结算')
+                   AND a.in_arrears=true AND a.payment_status='UNPAID'
+                   AND (:allDepartments=TRUE OR e.department_id IN (:departmentIds) OR
+                        (:doctorOnly=TRUE AND e.doctor_user_id=:doctorUserId))
               GROUP BY COALESCE(d.department_name,e.ward_name,'未分配'),COALESCE(d.department_code,e.ward_name,'')
               ORDER BY total DESC,COALESCE(d.department_code,e.ward_name,'')
                 """).param("allDepartments", scope.allDepartments())

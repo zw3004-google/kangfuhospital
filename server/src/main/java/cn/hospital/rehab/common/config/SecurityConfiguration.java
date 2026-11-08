@@ -60,6 +60,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/arrears/push-records/retry-batch", "/api/arrears/push-records/*/retry").hasAnyAuthority("PERM_API_PUSH_RETRY", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/arrears/records", "/api/arrears/records/filter-options", "/api/arrears/records/summary", "/api/arrears/records/*/history", "/api/arrears/report/**").hasAnyAuthority("PERM_API_ARREARS_REPORT", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/arrears/records/**").hasAnyAuthority("PERM_API_ARREARS_EDIT", "ROLE_SYSTEM_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/arrears/records").hasAnyAuthority("PERM_API_ARREARS_EDIT", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/discharge/records/export").hasAnyAuthority("PERM_API_DISCHARGE_EXPORT", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/discharge/records", "/api/discharge/records/summary", "/api/discharge/records/filter-options", "/api/discharge/records/*", "/api/discharge/records/*/history", "/api/discharge/analysis/**").hasAnyAuthority("PERM_API_DISCHARGE_ANALYSIS", "ROLE_SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/discharge/reminders/preview").hasAnyAuthority("PERM_API_DISCHARGE_REMINDER", "ROLE_SYSTEM_ADMIN")

@@ -48,7 +48,16 @@ FROM (VALUES
 ) v(inpatient_no,patient_name,department_code,doctor_login)
 JOIN sys_department d ON d.department_code=v.department_code
 JOIN sys_user u ON u.login_name=v.doctor_login
-ON CONFLICT(inpatient_no,admission_times) DO NOTHING;
+ON CONFLICT(inpatient_no,admission_times) DO UPDATE SET
+    patient_name=EXCLUDED.patient_name,
+    department_id=EXCLUDED.department_id,
+    ward_name=EXCLUDED.ward_name,
+    fee_type=EXCLUDED.fee_type,
+    doctor_name_source=EXCLUDED.doctor_name_source,
+    doctor_employee_no=EXCLUDED.doctor_employee_no,
+    doctor_user_id=EXCLUDED.doctor_user_id,
+    doctor_match_status=EXCLUDED.doctor_match_status,
+    admitted_at=EXCLUDED.admitted_at;
 
 INSERT INTO import_batch(batch_no,business_type,source_type,original_filename,status,total_count,success_count,
                          summary_status,started_at,finished_at)
@@ -58,11 +67,13 @@ ON CONFLICT(batch_no) DO UPDATE SET status='SUCCESS',summary_status='READY',fini
 
 INSERT INTO arrears_record(encounter_id,import_batch_id,arrears_type,original_required_deposit,coefficient_snapshot,
                            final_required_deposit,deposit_difference,in_arrears,arrears_amount,payment_status)
-SELECT e.id,b.id,'TEST',1000,1,1000,-100,TRUE,100,'UNPAID'
+SELECT e.id,b.id,CASE WHEN e.inpatient_no='TEST-0001' THEN 'INPATIENT' ELSE 'DISCHARGED_UNSETTLED' END,
+       1000,1,1000,-100,TRUE,100,'UNPAID'
 FROM patient_encounter e
 CROSS JOIN import_batch b
 WHERE e.inpatient_no IN ('TEST-0001','TEST-0002') AND b.batch_no='TEST-ARREARS-READY'
 ON CONFLICT(encounter_id) DO UPDATE SET import_batch_id=EXCLUDED.import_batch_id,
+    arrears_type=EXCLUDED.arrears_type,
     in_arrears=TRUE,arrears_amount=100,payment_status='UNPAID',recovery_progress='NOT_STARTED';
 
 INSERT INTO discharge_record(encounter_id,planned_discharge_at,actual_discharge_at,planned_discharge_updated_at)

@@ -29,6 +29,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -164,6 +165,51 @@ class ApplicationPostgresIntegrationTest {
         assertThat(imported.amount()).isEqualByComparingTo("-123.45");
         assertThat(imported.inArrears()).isTrue();
         assertThat(imported.coefficientVersionId()).isNull();
+    }
+
+    @Test
+    @Transactional
+    void inpatientHisSnapshotSynchronizesAddOverwriteTypeSwitchAndMissingDeletion() {
+        ArrearsImportRow keep = inpatientHisRow("HIS-SNAPSHOT-KEEP", "100");
+        ArrearsImportRow remove = inpatientHisRow("HIS-SNAPSHOT-REMOVE", "200");
+        ArrearsImportRow typeSwitch = inpatientHisRow("HIS-SNAPSHOT-SWITCH", "300");
+        arrearsImportService.importApiRows(List.of(keep, remove, typeSwitch), "BJKF_ZYCX", "MANUAL", null);
+
+        jdbc.sql("""
+                UPDATE arrears_record SET arrears_type='DISCHARGED_UNSETTLED'
+                WHERE encounter_id=(SELECT id FROM patient_encounter
+                                    WHERE inpatient_no='HIS-SNAPSHOT-SWITCH' AND admission_times=1)
+                """).update();
+
+        keep.interfaceArrearsAmount = "150";
+        typeSwitch.interfaceArrearsAmount = "350";
+        ArrearsImportRow added = inpatientHisRow("HIS-SNAPSHOT-ADDED", "400");
+        var result = arrearsImportService.importApiRows(List.of(keep, typeSwitch, added), "BJKF_ZYCX", "MANUAL", null);
+
+        assertThat(result.total()).isEqualTo(3);
+        ArrearsState retained = arrearsState("HIS-SNAPSHOT-KEEP");
+        ArrearsState switched = arrearsState("HIS-SNAPSHOT-SWITCH");
+        assertThat(retained.amount()).isEqualByComparingTo("150.00");
+        assertThat(switched.type()).isEqualTo("INPATIENT");
+        assertThat(switched.amount()).isEqualByComparingTo("350.00");
+        assertThat(arrearsState("HIS-SNAPSHOT-ADDED").amount()).isEqualByComparingTo("400.00");
+        assertThat(jdbc.sql("""
+                SELECT COUNT(*) FROM arrears_record a JOIN patient_encounter e ON e.id=a.encounter_id
+                WHERE e.inpatient_no='HIS-SNAPSHOT-REMOVE' AND e.admission_times=1
+                """).query(Long.class).single()).isZero();
+    }
+
+    @Test
+    @Transactional
+    void invalidInpatientHisSnapshotDoesNotDeleteExistingInpatientArrears() {
+        ArrearsImportRow retained = inpatientHisRow("HIS-SNAPSHOT-VALIDATION-GUARD", "123");
+        arrearsImportService.importApiRows(List.of(retained), "BJKF_ZYCX", "MANUAL", null);
+
+        ArrearsImportRow invalid = inpatientHisRow("HIS-SNAPSHOT-INVALID", null);
+        assertThatThrownBy(() -> arrearsImportService.importApiRows(List.of(invalid), "BJKF_ZYCX", "MANUAL", null))
+                .isInstanceOf(ImportValidationException.class);
+
+        assertThat(arrearsState("HIS-SNAPSHOT-VALIDATION-GUARD").amount()).isEqualByComparingTo("123.00");
     }
 
     @Test
@@ -784,7 +830,7 @@ class ApplicationPostgresIntegrationTest {
         mvc.perform(get("/api/arrears/report").with(sessionAuth("admin", "kfyy123!")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.latestSuccessfulBatch.batchNo").value(accepted.batchNo()))
-                .andExpect(jsonPath("$.data.people").value(1000))
+                .andExpect(jsonPath("$.data.people").value(2001))
                 .andExpect(jsonPath("$.data.patientTop10.length()").value(10));
         long reportMillis = (System.nanoTime() - reportStartedAt) / 1_000_000;
 
@@ -795,7 +841,7 @@ class ApplicationPostgresIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("最多1000条");
         assertThat(jdbc.sql("SELECT COUNT(*) FROM patient_encounter WHERE inpatient_no LIKE 'S6-ARR-REJECT-%'").query(Long.class).single()).isZero();
-        System.out.printf("PHASE6_METRIC arrears_import_1000_ms=%d arrears_query_1999_ms=%d arrears_export_1999_ms=%d arrears_report_1999_ms=%d%n", elapsedMillis, queryMillis, exportMillis, reportMillis);
+        System.out.printf("PHASE6_METRIC arrears_import_1000_ms=%d arrears_query_1999_ms=%d arrears_export_1999_ms=%d arrears_report_2001_ms=%d%n", elapsedMillis, queryMillis, exportMillis, reportMillis);
     }
 
     @Test
@@ -921,6 +967,29 @@ class ApplicationPostgresIntegrationTest {
                 .param("status", status).query(Long.class).single();
     }
 
+    private record ArrearsState(String type, java.math.BigDecimal amount) { }
+    private ArrearsState arrearsState(String inpatientNo) {
+        return jdbc.sql("""
+                SELECT a.arrears_type,a.arrears_amount FROM arrears_record a
+                JOIN patient_encounter e ON e.id=a.encounter_id
+                WHERE e.inpatient_no=:inpatientNo AND e.admission_times=1
+                """).param("inpatientNo", inpatientNo)
+                .query((row, index) -> new ArrearsState(row.getString("arrears_type"), row.getBigDecimal("arrears_amount"))).single();
+    }
+    private ArrearsImportRow inpatientHisRow(String no, String interfaceArrearsAmount) {
+        ArrearsImportRow row = new ArrearsImportRow();
+        row.inpatientNo = no;
+        row.admissionTimes = 1;
+        row.patientName = "接口快照测试患者";
+        row.wardName = "测试康复一科";
+        row.feeType = "接口测试费别";
+        row.arrearsType = "INPATIENT";
+        row.totalCost = "500";
+        row.prepaidAmount = "100";
+        row.originalRequiredDeposit = "200";
+        row.interfaceArrearsAmount = interfaceArrearsAmount;
+        return row;
+    }
     private static DischargeImportRow dischargeRow(String no) { DischargeImportRow r=new DischargeImportRow();r.inpatientNo=no;r.admissionTimes=1;r.patientName="阶段三患者";r.wardName="测试康复一科";r.feeType="TEST";return r; }
     private static ArrearsImportRow arrearsRow(String no) { ArrearsImportRow r=new ArrearsImportRow();r.inpatientNo=no;r.admissionTimes=1;r.patientName="阶段三患者";r.wardName="测试康复一科";r.feeType="PHASE3";r.arrearsType="INPATIENT";r.recoveryProgress="NOT_STARTED";r.prepaidAmount="100";r.originalRequiredDeposit="200";r.totalCost="500";return r; }
     private static ArrearsImportRow arrearsCapacityRow(String no) { ArrearsImportRow r=arrearsRow(no);r.patientName="阶段六容量患者";r.feeType="PHASE6";return r; }

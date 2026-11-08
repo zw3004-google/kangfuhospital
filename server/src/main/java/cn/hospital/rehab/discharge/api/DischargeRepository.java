@@ -100,8 +100,8 @@ public class DischargeRepository {
         DischargeSummary current=find(id,scope);
         DischargeUpdateValidator.validateBefore(request,current);
         var query = jdbc.sql("""
-                UPDATE discharge_record d SET planned_discharge_at=COALESCE(:planned,d.planned_discharge_at),
-                planned_discharge_updated_at=CASE WHEN CAST(:planned AS TIMESTAMPTZ) IS NULL THEN d.planned_discharge_updated_at ELSE CURRENT_TIMESTAMP END,
+                UPDATE discharge_record d SET planned_discharge_at=CASE WHEN :plannedProvided THEN CAST(:planned AS TIMESTAMPTZ) ELSE d.planned_discharge_at END,
+                planned_discharge_updated_at=CASE WHEN NOT :plannedProvided THEN d.planned_discharge_updated_at WHEN CAST(:planned AS TIMESTAMPTZ) IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
                 is_special_patient=COALESCE(:special,d.is_special_patient), is_turnover_patient=COALESCE(:turnover,d.is_turnover_patient),
                 special_reason=COALESCE(:specialReason,d.special_reason), abnormal_reason=COALESCE(:abnormalReason,d.abnormal_reason),
                 follow_up_required=COALESCE(:followUp,d.follow_up_required), follow_up_day7=COALESCE(:day7,d.follow_up_day7),
@@ -120,7 +120,7 @@ public class DischargeRepository {
                 WHERE d.encounter_id=e.id AND d.id=:id
                   AND (CAST(:expectedUpdatedAt AS TIMESTAMPTZ) IS NULL OR d.updated_at=:expectedUpdatedAt)
                 """ + buildScopeWhere(scope))
-                .param("planned", parseDate(request.plannedDischargeAt()))
+                .param("planned", parseDate(request.plannedDischargeAt())).param("plannedProvided", request.plannedDischargeAt() != null)
                 .param("special", request.specialPatient()).param("turnover", request.turnoverPatient())
                 .param("specialReason", request.specialReason()).param("abnormalReason", request.abnormalReason())
                 .param("followUp", request.followUpRequired()).param("day7", request.followUpDay7())

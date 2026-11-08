@@ -32,7 +32,7 @@ describe('ArrearsDetailsView 主管医生工号', () => {
     expect(wrapper.text()).not.toContain('欠费状态')
     expect(wrapper.text()).toContain('在院欠费')
     expect(wrapper.text()).toContain('出院未结算')
-    expect(wrapper.text()).toContain('出院已结算')
+    expect(wrapper.text()).not.toContain('出院已结算')
     expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步在院欠费')
     expect(wrapper.find('.mobile-sync-actions').text()).toContain('同步出院欠费')
     expect(wrapper.findAll('.mobile-sync-actions button')[1].attributes('disabled')).toBeDefined()

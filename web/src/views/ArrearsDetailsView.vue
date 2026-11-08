@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';import { useRouter } from 'vue-router';import { ElMessage } from 'element-plus';import { ArrowDown } from '@element-plus/icons-vue';import { clearSessionDraft,loadSessionDraft,saveSessionDraft } from '../sessionDraft';import { http,type ApiResponse } from '../api/http'
+import { onMounted, reactive, ref, watch } from 'vue';import { useRouter } from 'vue-router';import { ElMessage,ElMessageBox } from 'element-plus';import { ArrowDown } from '@element-plus/icons-vue';import { clearSessionDraft,loadSessionDraft,saveSessionDraft } from '../sessionDraft';import { http,type ApiResponse } from '../api/http'
 import { importFailureFeedback,type ImportFeedback,type ImportResult } from '../importFeedback'
 interface Row{id:number;inpatientNo:string;admissionTimes:number;patientName:string;departmentName:string;wardName:string|null;feeType:string;arrearsType:string;doctorName:string;doctorEmployeeNo:string|null;admittedAt:string|null;dischargedAt:string|null;totalCost:number;prepaidAmount:number;medicalInsurancePaid:number;personalAccountPaid:number;finalRequiredDeposit:number;arrearsAmount:number;inArrears:boolean;paymentStatus:string;arrearsReason:string|null;recoveryProgress:string;previousRecoveryProgress:string;lastOperatedBy:string|null;sourceUpdatedAt:string|null;updatedAt:string|null} interface Page<T>{items:T[];total:number;page:number;pageSize:number}
 interface FilterOptions{departments:{id:number;name:string}[];feeTypes:string[];arrearsTypes:string[]}
@@ -17,11 +17,11 @@ const router=useRouter()
 const mobileFilters=ref(false)
 const initialPageSize=typeof window.matchMedia==='function'&&window.matchMedia('(max-width: 767px)').matches?20:50
 const defaultArrearsTypes=['INPATIENT','DISCHARGED_UNSETTLED']
-const rows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref<string[]>([...defaultArrearsTypes]),feeType=ref(''),recoveryProgress=ref(''),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),syncing=ref(''),saving=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
+const rows=ref<Row[]>([]),selectedRows=ref<Row[]>([]),total=ref(0),summary=ref<Summary>(),page=ref(1),pageSize=ref(initialPageSize),keyword=ref(''),departmentId=ref<number>(),arrearsType=ref<string[]>([...defaultArrearsTypes]),feeType=ref(''),recoveryProgress=ref(''),filterOptions=ref<FilterOptions>({departments:[],feeTypes:[],arrearsTypes:[]}),loading=ref(false),summaryLoading=ref(false),uploading=ref(false),syncing=ref(''),saving=ref(false),deleting=ref(false),historyLoading=ref(false),dialog=ref(false),current=ref<Row|null>(null),historyItems=ref<HistoryItem[]>([]),importFeedback=ref<ImportFeedback|null>(null),form=reactive({paymentStatus:'UNPAID',arrearsReason:'',recoveryProgress:''})
 const queryParams=()=>({page:page.value,pageSize:pageSize.value,keyword:keyword.value||undefined,departmentId:departmentId.value,arrearsType:arrearsType.value.length?arrearsType.value.join(','):undefined,feeType:feeType.value||undefined,recoveryProgress:recoveryProgress.value||undefined})
 const sortRowsByArrearsAmount=(items:Row[])=>[...items].sort((left,right)=>Math.abs(Number(right.arrearsAmount||0))-Math.abs(Number(left.arrearsAmount||0)))
 const summaryParams=()=>{const {page:_,pageSize:__,...params}=queryParams();return params}
-const load=async()=>{loading.value=true;try{const r=(await http.get<ApiResponse<Page<Row>>>('/arrears/records',{params:queryParams()})).data.data;rows.value=sortRowsByArrearsAmount(r.items);total.value=r.total}catch(e){ElMessage.error(e instanceof Error?e.message:'加载失败')}finally{loading.value=false}}
+const load=async()=>{loading.value=true;try{const r=(await http.get<ApiResponse<Page<Row>>>('/arrears/records',{params:queryParams()})).data.data;rows.value=sortRowsByArrearsAmount(r.items);selectedRows.value=[];total.value=r.total}catch(e){ElMessage.error(e instanceof Error?e.message:'加载失败')}finally{loading.value=false}}
 const loadSummary=async()=>{summaryLoading.value=true;try{summary.value=(await http.get<ApiResponse<Summary>>('/arrears/records/summary',{params:summaryParams()})).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'统计加载失败')}finally{summaryLoading.value=false}}
 const loadAll=()=>Promise.all([load(),loadSummary()])
 const loadFilterOptions=async()=>{try{filterOptions.value=(await http.get<ApiResponse<FilterOptions>>('/arrears/records/filter-options')).data.data}catch(e){ElMessage.error(e instanceof Error?e.message:'筛选项加载失败')}}
@@ -33,6 +33,7 @@ const loadHistory=async(id:number)=>{historyLoading.value=true;try{historyItems.
 const historyLines=(item:HistoryItem)=>item.changeLines?.length?item.changeLines:item.changeDescription.replace(/\\n/g,'\n').split(/\r?\n/).filter(Boolean)
 const edit=(row:Row)=>{current.value=row;form.paymentStatus=row.paymentStatus;form.arrearsReason=row.arrearsReason||'';form.recoveryProgress=row.recoveryProgress||'NOT_STARTED';const draft=loadSessionDraft<typeof form>(`arrears:${row.id}`);if(draft)Object.assign(form,draft);historyItems.value=[];dialog.value=true;loadHistory(row.id)}
 const save=async()=>{if(!current.value)return;saving.value=true;try{form.arrearsReason=form.arrearsReason.trim();form.paymentStatus=form.recoveryProgress==='PAID'?'PAID':'UNPAID';await http.put(`/arrears/records/${current.value.id}`,{...form,expectedUpdatedAt:current.value.updatedAt});clearSessionDraft(`arrears:${current.value.id}`);ElMessage.success('已保存');await loadAll();await loadHistory(current.value.id);dialog.value=false}catch(e){ElMessage.error(e instanceof Error?e.message:'保存失败')}finally{saving.value=false}}
+const remove=async(records:Row[])=>{if(!records.length)return;try{await ElMessageBox.confirm(`确认删除选中的 ${records.length} 条欠费记录？此操作不可恢复。`,'删除欠费记录',{type:'warning',confirmButtonText:'删除',cancelButtonText:'取消'});deleting.value=true;await http.delete('/arrears/records',{data:{ids:records.map(item=>item.id)}});ElMessage.success(`已删除 ${records.length} 条欠费记录`);await loadFilterOptions();await loadAll()}catch(e){if(e!=='cancel'&&e!=='close')ElMessage.error(e instanceof Error?e.message:'删除失败')}finally{deleting.value=false}}
 watch(form,()=>{if(dialog.value&&current.value)saveSessionDraft(`arrears:${current.value.id}`,{...form})},{deep:true})
 const money=(value:number)=>Number(value||0).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})
 const arrearsMoney=(value:number)=>money(Math.abs(Number(value||0)))
@@ -49,7 +50,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <div class="page-heading">
 <div>
 <h2>欠费明细</h2>
-<p>列表、筛选、统计与导出使用相同数据范围。</p>
+<p>统计卡片按当前授权范围实时汇总仍欠费且未缴费的在院及出院未结算患者。</p>
 </div>
 <div class="heading-actions">
 <el-button v-permission="'PERM_API_HIS_SYNC_TRIGGER'" :loading="syncing==='INPATIENT_ARREARS'" :disabled="!!syncing" @click="syncHis('INPATIENT_ARREARS','在院欠费')">同步在院欠费</el-button>
@@ -77,7 +78,7 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <div>
 <span>欠费患者数</span>
 <strong>{{summary?.totalPeople||0}} 人</strong>
-<small>在院 {{summary?.inpatientPeople||0}} · 出院未结算 {{summary?.dischargedUnsettledPeople||0}} · 出院已结算 {{summary?.dischargedSettledPeople||0}}</small>
+<small>在院 {{summary?.inpatientPeople||0}} · 出院未结算 {{summary?.dischargedUnsettledPeople||0}}</small>
 </div>
 <div>
 <span>欠费金额合计</span>
@@ -126,14 +127,16 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 </div><template #footer><div class="mobile-filter-actions"><el-button @click="reset();mobileFilters=false">重置</el-button><el-button type="primary" @click="page=1;loadAll();mobileFilters=false">应用筛选</el-button></div></template>
 </el-drawer>
 <h3 class="table-section-title">欠费患者列表</h3>
+<div class="table-actions desktop-only"><el-button v-permission="'PERM_API_ARREARS_EDIT'" type="danger" plain :disabled="!selectedRows.length" :loading="deleting" @click="remove(selectedRows)">批量删除{{selectedRows.length?`（${selectedRows.length}）`:''}}</el-button></div>
 <div v-loading="loading" class="mobile-only mobile-record-list"><el-empty v-if="!loading&&!rows.length" description="暂无欠费患者"/>
 <article v-for="row in rows" :key="row.id" class="mobile-record-card arrears-mobile-card">
 <header><div><strong>{{row.patientName}}</strong><span>{{row.inpatientNo}} · 第{{row.admissionTimes}}次住院</span></div><el-tag :type="progressTagType(row.recoveryProgress)" effect="light">{{progressLabel(row.recoveryProgress)}}</el-tag></header>
 <div class="mobile-record-primary"><span>欠费金额</span><strong>{{arrearsMoney(row.arrearsAmount)}} 元</strong></div>
 <dl><div><dt>欠费类型</dt><dd>{{arrearsTypeLabel(row.arrearsType)}}</dd></div><div><dt>科室/病区</dt><dd>{{ward(row)}}</dd></div><div><dt>主管医生</dt><dd>{{row.doctorName||'—'}}<small v-if="row.doctorEmployeeNo"> · {{row.doctorEmployeeNo}}</small></dd></div><div><dt>数据更新时间</dt><dd>{{time(row.sourceUpdatedAt)}}</dd></div></dl>
-<footer><el-button v-permission="'PERM_API_ARREARS_EDIT'" link type="primary" @click="edit(row)">编辑标注</el-button></footer>
+<footer><el-button v-permission="'PERM_API_ARREARS_EDIT'" link type="primary" @click="edit(row)">编辑标注</el-button><el-button v-permission="'PERM_API_ARREARS_EDIT'" link type="danger" :loading="deleting" @click="remove([row])">删除</el-button></footer>
 </article></div>
-<el-table v-loading="loading" :data="rows" stripe class="arrears-table desktop-only">
+<el-table v-loading="loading" :data="rows" stripe class="arrears-table desktop-only" @selection-change="selectedRows=$event">
+<el-table-column type="selection" width="48" fixed="left"/>
 <el-table-column prop="inpatientNo" label="住院号" width="130" fixed="left" show-overflow-tooltip/>
 <el-table-column prop="admissionTimes" label="住院次数" width="90" align="center"/>
 <el-table-column prop="patientName" label="姓名" width="100" fixed="left" show-overflow-tooltip/>
@@ -198,9 +201,10 @@ const exportData=async(format:'xlsx'|'csv')=>{try{const r=await http.get('/arrea
 <el-table-column label="数据更新时间" width="180">
 <template #default="s">{{time(s.row.sourceUpdatedAt)}}</template>
 </el-table-column>
-<el-table-column label="操作" width="100" fixed="right">
+<el-table-column label="操作" width="150" fixed="right">
 <template #default="s">
 <el-button v-permission="'PERM_API_ARREARS_EDIT'" link @click="edit(s.row)">编辑标注</el-button>
+<el-button v-permission="'PERM_API_ARREARS_EDIT'" link type="danger" :loading="deleting" @click="remove([s.row])">删除</el-button>
 </template>
 </el-table-column>
 </el-table>

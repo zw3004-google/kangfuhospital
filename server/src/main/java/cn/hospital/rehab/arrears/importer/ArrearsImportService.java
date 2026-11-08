@@ -108,7 +108,9 @@ public class ArrearsImportService {
                 """).param("batchNo", batchNo).param("total", rows.size()).param("transactionCode", transactionCode)
                 .param("triggerType", triggerType).param("startedBy", startedBy).query(Long.class).single();
         int matched = 0, unmatched = 0, ambiguous = 0, added = 0, overwritten = 0;
+        Set<String> sourceKeys = new HashSet<>();
         for (ArrearsImportRow row : rows) {
+            sourceKeys.add(encounterKey(row));
             DoctorMatch doctor = matchDoctor(row.doctorEmployeeNo);
             if (doctor.matched()) matched++; else if (doctor.ambiguous()) ambiguous++; else unmatched++;
             boolean exists = encounterExists(row);
@@ -116,6 +118,7 @@ public class ArrearsImportService {
             upsertArrears(row, encounterId, batchId, directInterfaceAmount, false, null);
             if (exists) overwritten++; else added++;
         }
+        if (directInterfaceAmount) deleteMissingInpatientArrears(sourceKeys);
         jdbc.sql("""
                 UPDATE import_batch SET status='SUCCESS',success_count=:success,added_count=:added,
                   overwritten_count=:overwritten,summary_status='READY',doctor_matched_count=:matched,
@@ -172,15 +175,33 @@ public class ArrearsImportService {
         jdbc.sql("""
                 INSERT INTO arrears_record(encounter_id,import_batch_id,arrears_type,total_cost,prepaid_amount,medical_insurance_paid,personal_account_paid,original_required_deposit,coefficient_version_id,coefficient_snapshot,final_required_deposit,deposit_difference,in_arrears,arrears_amount,payment_status,recovery_progress,previous_recovery_progress,last_operated_by)
                 VALUES (:encounter,:batch,:type,:total,:prepaid,COALESCE(:insurance,0),COALESCE(:personal,0),:original,:versionId,:coefficient,:finalDeposit,:difference,:inArrears,:arrears,:paymentStatus,:recoveryProgress,:previousRecoveryProgress,:operatorId)
-                ON CONFLICT (encounter_id) DO UPDATE SET import_batch_id=EXCLUDED.import_batch_id,arrears_type=CASE WHEN :overwriteManagementFields THEN EXCLUDED.arrears_type ELSE arrears_record.arrears_type END,total_cost=COALESCE(EXCLUDED.total_cost,arrears_record.total_cost),prepaid_amount=EXCLUDED.prepaid_amount,medical_insurance_paid=CASE WHEN :insuranceProvided THEN EXCLUDED.medical_insurance_paid ELSE arrears_record.medical_insurance_paid END,personal_account_paid=CASE WHEN :personalProvided THEN EXCLUDED.personal_account_paid ELSE arrears_record.personal_account_paid END,original_required_deposit=EXCLUDED.original_required_deposit,coefficient_version_id=EXCLUDED.coefficient_version_id,coefficient_snapshot=EXCLUDED.coefficient_snapshot,final_required_deposit=EXCLUDED.final_required_deposit,deposit_difference=EXCLUDED.deposit_difference,in_arrears=EXCLUDED.in_arrears,arrears_amount=EXCLUDED.arrears_amount,payment_status=CASE WHEN :overwriteRecoveryProgress THEN EXCLUDED.payment_status ELSE arrears_record.payment_status END,recovery_progress=CASE WHEN :overwriteRecoveryProgress THEN EXCLUDED.recovery_progress ELSE arrears_record.recovery_progress END,previous_recovery_progress=CASE WHEN :overwriteRecoveryProgress AND EXCLUDED.recovery_progress='PAID' THEN CASE WHEN arrears_record.recovery_progress='PAID' THEN arrears_record.previous_recovery_progress ELSE arrears_record.recovery_progress END WHEN :overwriteRecoveryProgress THEN EXCLUDED.previous_recovery_progress ELSE arrears_record.previous_recovery_progress END,last_operated_by=CASE WHEN :overwriteManagementFields THEN :operatorId ELSE arrears_record.last_operated_by END,source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                ON CONFLICT (encounter_id) DO UPDATE SET import_batch_id=EXCLUDED.import_batch_id,arrears_type=CASE WHEN :overwriteArrearsType THEN EXCLUDED.arrears_type ELSE arrears_record.arrears_type END,total_cost=COALESCE(EXCLUDED.total_cost,arrears_record.total_cost),prepaid_amount=EXCLUDED.prepaid_amount,medical_insurance_paid=CASE WHEN :insuranceProvided THEN EXCLUDED.medical_insurance_paid ELSE arrears_record.medical_insurance_paid END,personal_account_paid=CASE WHEN :personalProvided THEN EXCLUDED.personal_account_paid ELSE arrears_record.personal_account_paid END,original_required_deposit=EXCLUDED.original_required_deposit,coefficient_version_id=EXCLUDED.coefficient_version_id,coefficient_snapshot=EXCLUDED.coefficient_snapshot,final_required_deposit=EXCLUDED.final_required_deposit,deposit_difference=EXCLUDED.deposit_difference,in_arrears=EXCLUDED.in_arrears,arrears_amount=EXCLUDED.arrears_amount,payment_status=CASE WHEN :overwriteRecoveryProgress THEN EXCLUDED.payment_status ELSE arrears_record.payment_status END,recovery_progress=CASE WHEN :overwriteRecoveryProgress THEN EXCLUDED.recovery_progress ELSE arrears_record.recovery_progress END,previous_recovery_progress=CASE WHEN :overwriteRecoveryProgress AND EXCLUDED.recovery_progress='PAID' THEN CASE WHEN arrears_record.recovery_progress='PAID' THEN arrears_record.previous_recovery_progress ELSE arrears_record.recovery_progress END WHEN :overwriteRecoveryProgress THEN EXCLUDED.previous_recovery_progress ELSE arrears_record.previous_recovery_progress END,last_operated_by=CASE WHEN :overwriteManagementFields THEN :operatorId ELSE arrears_record.last_operated_by END,source_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
                 """).param("encounter", encounterId).param("batch", batchId).param("type", arrearsType)
                 .param("total", nullableDecimal(row.totalCost)).param("prepaid", prepaid).param("insurance", nullableDecimal(row.medicalInsurancePaid))
                 .param("personal", nullableDecimal(row.personalAccountPaid)).param("insuranceProvided", !blank(row.medicalInsurancePaid))
                 .param("personalProvided", !blank(row.personalAccountPaid)).param("original", original).param("versionId", version == null ? null : version.id()).param("coefficient", coefficient)
                 .param("finalDeposit", finalDeposit).param("difference", difference).param("inArrears", arrears.signum() != 0).param("arrears", arrears)
                 .param("paymentStatus", paymentStatus).param("recoveryProgress", recoveryProgress).param("previousRecoveryProgress", previousRecoveryProgress)
-                .param("overwriteManagementFields", overwriteManagementFields).param("overwriteRecoveryProgress", overwriteRecoveryProgress).param("operatorId", operatorId).update();
+                .param("overwriteArrearsType", directInterfaceAmount || overwriteManagementFields).param("overwriteRecoveryProgress", overwriteRecoveryProgress)
+                .param("overwriteManagementFields", overwriteManagementFields).param("operatorId", operatorId).update();
     }
+
+    private void deleteMissingInpatientArrears(Set<String> sourceKeys) {
+        List<ExistingInpatientArrears> existing = jdbc.sql("""
+                SELECT a.id,e.inpatient_no,e.admission_times
+                  FROM arrears_record a
+                  JOIN patient_encounter e ON e.id=a.encounter_id
+                 WHERE a.arrears_type IN ('INPATIENT','在院患者')
+                """).query((row, index) -> new ExistingInpatientArrears(row.getLong("id"),
+                row.getString("inpatient_no"), row.getInt("admission_times"))).list();
+        for (ExistingInpatientArrears record : existing) {
+            if (!sourceKeys.contains(record.inpatientNo().trim() + "#" + record.admissionTimes())) {
+                jdbc.sql("DELETE FROM arrears_record WHERE id=:id").param("id", record.id()).update();
+            }
+        }
+    }
+
+    private static String encounterKey(ArrearsImportRow row) { return row.inpatientNo.trim() + "#" + row.admissionTimes; }
 
     static String resolvedArrearsType(ArrearsImportRow row, boolean directInterfaceAmount) {
         return row.arrearsType;
@@ -195,6 +216,7 @@ public class ArrearsImportService {
                 || !java.util.Objects.equals(before.paymentStatus(), after.paymentStatus());
     }
     private record ArrearsImportState(long id, String arrearsType, String recoveryProgress, String paymentStatus) {}
+    private record ExistingInpatientArrears(long id, String inpatientNo, int admissionTimes) {}
 
     private DoctorMatch matchDoctor(String employeeNo) {
         if (blank(employeeNo)) return new DoctorMatch(null, "NOT_FOUND");

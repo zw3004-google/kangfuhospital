@@ -98,6 +98,26 @@ class ArrearsRecordControllerTest {
     }
 
     @Test
+    void deleteUsesDataScopeAndRecordsAnAuditEntryForEachDeletedRecord() {
+        var repository = mock(ArrearsRecordRepository.class);
+        var scopes = mock(DataScopeService.class);
+        var audit = mock(AuditLogService.class);
+        var authentication = mock(Authentication.class);
+        var scope = new DataScope(false, Set.of(12L), 34L);
+        var record = mock(ArrearsRecordSummary.class);
+        when(record.id()).thenReturn(88L);
+        when(scopes.resolve(authentication)).thenReturn(scope);
+        when(repository.delete(List.of(88L), scope)).thenReturn(List.of(record));
+        var controller = new ArrearsRecordController(repository, scopes, audit, mock(ArrearsRecordHistoryService.class), mock(ArrearsExportService.class));
+        var http = new MockHttpServletRequest(); http.setRemoteAddr("10.0.0.8");
+
+        var response = controller.delete(authentication, http, new DeleteArrearsRecordsRequest(List.of(88L)));
+
+        assertThat(response.data()).containsEntry("deleted", 1);
+        verify(audit).record(authentication, "ARREARS", "ARREARS_RECORD", "88", "DELETE", record, null, "10.0.0.8");
+    }
+
+    @Test
     void exportUsesSameFiltersScopeAndRequestedFormat() {
         var repository = mock(ArrearsRecordRepository.class);var scopes = mock(DataScopeService.class);
         var audit = mock(AuditLogService.class);var exporter = mock(ArrearsExportService.class);
